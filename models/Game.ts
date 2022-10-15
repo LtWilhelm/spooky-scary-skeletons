@@ -19,7 +19,7 @@ export class Game {
 
   character?: Character;
 
-  skeletonCount = 0;
+  skeletonCount = Number(localStorage.getItem('skeletons') || '3');
 
   dialog = document.querySelector('dialog');
 
@@ -338,7 +338,7 @@ export class Game {
             this.dialog?.showModal();
             setTimeout(() => {
               this.dialog?.close();
-            }, 1500)
+            }, 2000)
             this.render();
           }
           break;

@@ -1,4 +1,4 @@
-import { Character, Game } from "./models/index.ts";
+import { Game } from "./models/index.ts";
 
 const game = new Game();
 
