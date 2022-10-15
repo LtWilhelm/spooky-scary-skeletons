@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Spooky Scary Skeletons</title>
+  <style>
+    * {
+      box-sizing: border-box;
+      color: white;
+      font-family: sans-serif;
+    }
+
+    body {
+      background-color: #221122;
+    }
+
+    .floor {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr 1fr;
+      grid-template-rows: 1fr 1fr 1fr 1fr 1fr;
+      /* gap: 10px; */
+      aspect-ratio: 4/5;
+      width: 30%;
+      border: 1px purple solid;
+    }
+
+    .floor:empty {
+      background-image: url('https://static.vecteezy.com/system/resources/previews/010/329/632/original/cartoon-halloween-kids-clipart-skeleton-free-png.png');
+      background-size: contain;
+      background-repeat: no-repeat;
+      background-position: center;
+    }
+    
+    /* .floor::after {
+      content: attr(id);
+    } */
+
+    .floor>div {
+      /* border: 1px red solid; */
+      border: 10px solid;
+      border-image: radial-gradient(brown 0% 90%, white 90%);
+      border-image-slice: 1;
+
+      position: relative;
+      text-transform: capitalize;
+
+      display: grid;
+      align-items: center;
+      text-align: center;
+    }
+
+    .floor>div::before {
+      border-top: white 11px solid;
+      border-bottom: white 11px solid;
+      border-left: white 11px solid;
+      border-right: white 11px solid;
+      content: '';
+      position: absolute;
+      top: -10px;
+      bottom: -10px;
+      left: -10px;
+      right: -10px;
+    }
+
+    .floor>div.north::before {
+      border-top: unset;
+    }
+
+    .floor>div.south::before {
+      border-bottom: unset;
+    }
+
+    .floor>div.east::before {
+      border-right: unset;
+    }
+
+    .floor>div.west::before {
+      border-left: unset;
+    }
+
+    container {
+      display: flex;
+      width: 100%;
+      justify-content: center;
+      margin-bottom: 2rem;
+    }
+
+    .hidden {
+      display: none;
+      opacity: 0;
+    }
+
+    .treasure {
+      background-color: aqua;
+      color: #221122;
+    }
+
+    .current {
+      background-image: radial-gradient(red 0% 50%, #00000000 50%);
+    }
+
+    button {
+      background-color: orange;
+      color: black;
+      border: none;
+      border-radius: 1rem;
+      font-size: larger;
+      padding: .5rem;
+      min-width: 5em;
+    }
+    button:disabled {
+      background-color: grey;
+    }
+
+    [data-dir=north] { 
+      grid-area: north;
+    }
+    [data-dir=south] { 
+      grid-area: south;
+    }
+    [data-dir=east] { 
+      grid-area: east;
+    }
+    [data-dir=west] { 
+      grid-area: west;
+    }
+    [data-dir=up] { 
+      grid-area: up;
+    }
+    [data-dir=down] { 
+      grid-area: down;
+    }
+
+    .buttons {
+      display: grid;
+      /* grid-template-columns: repeat(5, 1fr);
+      grid-template-rows: repeat(3, 1fr); */
+      grid-template-areas: 
+        "a a north b b"
+        "up west c east down"
+        "d d south e e";
+      gap: 10px;
+      height: min-content;
+      width: min-content;
+      margin: auto;
+    }
+
+    dialog {
+      background-color: black;
+      text-align: center;
+      font-size: larger;
+    }
+
+    .flex {
+      display: flex;
+      justify-content: space-between;
+    }
+
+    .score {
+      text-align: right;
+    }
+    h3 {margin-top: 0;}
+
+    @media screen and (max-width: 480px) {
+      .floor {
+        width: 100%;
+      }
+
+      .buttons {
+        width: 100%;
+        grid-template-areas: 
+        "up north b"
+        "west c east"
+        "d south down";
+
+      }
+      button {
+        min-width: 0;
+      }
+    }
+  </style>
+</head>
+
+<body>
+  <h1>Spooky Scary Skeletons</h1>
+  <div class="flex">
+    <h3 class="floor-name"></h3>
+    <h3 class="score"></h3>
+  </div>
+  
+  <container>
+    <div class="floor" data-floor="basement" id="basement"></div>
+    <div class="floor" data-floor="lower" id="lower"></div>
+    <div class="floor" data-floor="upper" id="upper"></div>
+  </container>
+
+  <dialog>
+    💀💀💀<br>
+    You've been grabbed by the ghoulies!<br/>
+    They've taken you to the dungeon!<br>
+    💀💀💀
+  </dialog>
+
+  <div class="buttons">
+  </div>
+
+  <script src="./bundle.js"></script>
+</body>
+
+</html>
