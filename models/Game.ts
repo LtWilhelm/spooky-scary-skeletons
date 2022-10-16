@@ -21,6 +21,8 @@ export class Game {
 
   dialog = document.querySelector('dialog');
 
+  floor: floors = 'basement';
+
   tick = () => {
     this.skeletonCheck();
     this.skeletonMove();
@@ -219,8 +221,44 @@ export class Game {
           character.room?.element?.classList.add('current');
         }
       }
+
+      document.querySelectorAll<HTMLDivElement>('.floor[data-floor]').forEach(f => {
+        const floor = f.dataset.floor;
+
+        if (floor === this.floor) {
+          f.classList.remove('hidden');
+        } else {
+          f.classList.add('hidden');
+        }
+      })
+
+      const nameDict = {
+        lower: 'Ground Floor',
+        upper: 'Upstairs',
+        basement: 'Basement'
+      }
+
+      document.querySelector('.floor-name')!.textContent = nameDict[this.floor];
     }
     this.character?.buttons();
+  }
+
+  changeFloor = (dir: 'up' | 'down') => {
+    const options = {
+      up: {
+        basement: 'lower',
+        upper: 'upper',
+        lower: 'upper'
+      },
+      down: {
+        upper: 'lower',
+        lower: 'basement',
+        basement: 'basement'
+      },
+    }
+
+    this.floor = options[dir][this.floor] as floors;
+    this.render();
   }
 
   randomSelector = (floor?: floors): gridAccessor => `${Math.floor(Math.random() * this.gridSize.x)},${Math.floor(Math.random() * this.gridSize.y)},${floor || floors[Math.floor(Math.random() * floors.length)]}`;
@@ -316,7 +354,14 @@ export class Game {
 
   startGame = () => {
     this.channel?.send(JSON.stringify({ action: 'unlock' }));
-    document.querySelector('.buttons')!.innerHTML = '';
+    document.querySelector('.buttons')!.innerHTML = `
+    <button class="movement" data-dir="up">Up</button>
+    <button class="movement" data-dir="down">Down</button>`;
+    document.querySelectorAll('.movement[data-dir]').forEach(b => {
+      b = b as HTMLButtonElement;
+      b.addEventListener('click', () => this.changeFloor((b as HTMLButtonElement).dataset.dir as 'up'| 'down'))
+    })
+    this.render();
   }
 
   joinGame = () => {

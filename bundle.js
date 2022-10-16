@@ -435,6 +435,7 @@ class Game {
     isHost = false;
     character;
     dialog = document.querySelector('dialog');
+    floor = 'basement';
     tick = ()=>{
         this.skeletonCheck();
         this.skeletonMove();
@@ -619,8 +620,38 @@ class Game {
                     character1.room?.element?.classList.add('current');
                 }
             }
+            document.querySelectorAll('.floor[data-floor]').forEach((f)=>{
+                const floor = f.dataset.floor;
+                if (floor === this.floor) {
+                    f.classList.remove('hidden');
+                } else {
+                    f.classList.add('hidden');
+                }
+            });
+            const nameDict1 = {
+                lower: 'Ground Floor',
+                upper: 'Upstairs',
+                basement: 'Basement'
+            };
+            document.querySelector('.floor-name').textContent = nameDict1[this.floor];
         }
         this.character?.buttons();
+    };
+    changeFloor = (dir)=>{
+        const options = {
+            up: {
+                basement: 'lower',
+                upper: 'upper',
+                lower: 'upper'
+            },
+            down: {
+                upper: 'lower',
+                lower: 'basement',
+                basement: 'basement'
+            }
+        };
+        this.floor = options[dir][this.floor];
+        this.render();
     };
     randomSelector = (floor)=>`${Math.floor(Math.random() * this.gridSize.x)},${Math.floor(Math.random() * this.gridSize.y)},${floor || floors[Math.floor(Math.random() * floors.length)]}`;
     skeletonCheck = ()=>{
@@ -707,7 +738,14 @@ class Game {
         this.channel?.send(JSON.stringify({
             action: 'unlock'
         }));
-        document.querySelector('.buttons').innerHTML = '';
+        document.querySelector('.buttons').innerHTML = `
+    <button class="movement" data-dir="up">Up</button>
+    <button class="movement" data-dir="down">Down</button>`;
+        document.querySelectorAll('.movement[data-dir]').forEach((b)=>{
+            b = b;
+            b.addEventListener('click', ()=>this.changeFloor(b.dataset.dir));
+        });
+        this.render();
     };
     joinGame = ()=>{
         this.isHost = false;
@@ -809,7 +847,15 @@ const host = ()=>{
         startButton.textContent = 'Start Game';
         startButton.dataset.dir = 'north';
         startButton.addEventListener('click', game.startGame);
-        container.append(startButton);
+        const upButton = document.createElement('button');
+        upButton.textContent = 'Up';
+        upButton.dataset.dir = 'up';
+        upButton.addEventListener('click', ()=>game.changeFloor('up'));
+        const downButton = document.createElement('button');
+        downButton.textContent = 'Down';
+        downButton.dataset.dir = 'down';
+        downButton.addEventListener('click', ()=>game.changeFloor('down'));
+        container.append(startButton, upButton, downButton);
     }
 };
 init();

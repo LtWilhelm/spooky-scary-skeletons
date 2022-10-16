@@ -41,7 +41,17 @@ const host = () => {
     startButton.textContent='Start Game';
     startButton.dataset.dir = 'north';
     startButton.addEventListener('click', game.startGame);
-    container.append(startButton);
+    
+    const upButton = document.createElement('button');
+    upButton.textContent='Up';
+    upButton.dataset.dir = 'up';
+    upButton.addEventListener('click', () => game.changeFloor('up'));
+    const downButton = document.createElement('button');
+    downButton.textContent='Down';
+    downButton.dataset.dir = 'down';
+    downButton.addEventListener('click', () => game.changeFloor('down'));
+    
+    container.append(startButton, upButton, downButton);
   }
 }
 
