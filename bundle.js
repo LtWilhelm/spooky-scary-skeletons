@@ -428,7 +428,6 @@ class Game {
     };
     isHost = false;
     character;
-    skeletonCount = 0;
     dialog = document.querySelector('dialog');
     tick = ()=>{
         this.skeletonCheck();
@@ -530,7 +529,8 @@ class Game {
             }
             treasureRoom.hasTreasure = true;
         }
-        for(let i = 0; i < this.skeletonCount; i++){
+        const skeletonCount = Number(localStorage.getItem('skeletons') || '3');
+        for(let i = 0; i < skeletonCount; i++){
             const skeleton = new Character('skeleton');
             skeleton.room = this.grid.get(this.randomSelector());
             this.characters.set(skeleton.uuid, skeleton);
@@ -596,11 +596,19 @@ class Game {
             document.querySelector('.score').textContent = `You have gathered ${this.character?.gatheredTreasures.length} treasures`;
         }
         if (this.isHost) {
-            for (const character of this.characters.values()){
-                if (character.name !== 'skeleton') {
-                    character.room?.element?.classList.add('current');
-                    character.room.element.textContent = character.room.name;
-                } else character.room.element.textContent = character.room.name + ' 💀';
+            const skeletons = Array.from(this.characters.values()).filter((c)=>c.name === 'skeleton');
+            for (const room1 of this.rooms){
+                room1.element.textContent = room1.name;
+                for (const character of skeletons){
+                    if (character.room === room1) {
+                        room1.element.textContent += ' 💀';
+                    }
+                }
+            }
+            for (const character1 of this.characters.values()){
+                if (character1.name !== 'skeleton') {
+                    character1.room?.element?.classList.add('current');
+                }
             }
         }
         this.character?.buttons();
@@ -721,7 +729,7 @@ class Game {
                             this.dialog?.showModal();
                             setTimeout(()=>{
                                 this.dialog?.close();
-                            }, 1500);
+                            }, 2000);
                             this.render();
                         }
                         break;

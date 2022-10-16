@@ -19,8 +19,6 @@ export class Game {
 
   character?: Character;
 
-  skeletonCount = Number(localStorage.getItem('skeletons') || '3');
-
   dialog = document.querySelector('dialog');
 
   tick = () => {
@@ -118,7 +116,9 @@ export class Game {
       treasureRoom.hasTreasure = true;
     }
 
-    for (let i = 0; i < this.skeletonCount; i++) {
+    const skeletonCount = Number(localStorage.getItem('skeletons') || '3');
+
+    for (let i = 0; i < skeletonCount; i++) {
       const skeleton = new Character('skeleton');
       skeleton.room = this.grid.get(this.randomSelector());
       this.characters.set(skeleton.uuid, skeleton);
@@ -195,20 +195,26 @@ export class Game {
         upper: 'Upstairs',
         basement: 'Basement'
       }
-      
+
       document.querySelector('.floor-name')!.textContent = nameDict[this.character!.room!.level];
       document.querySelector('.score')!.textContent = `You have gathered ${this.character?.gatheredTreasures.length} treasures`;
     }
 
+
     if (this.isHost) {
+      const skeletons = Array.from(this.characters.values()).filter(c => c.name === 'skeleton');
+      for (const room of this.rooms) {
+        room.element!.textContent = room.name;
+        for (const character of skeletons) {
+          if (character.room === room) {
+            room.element!.textContent += ' 💀';
+          }
+        }
+      }
       for (const character of this.characters.values()) {
         if (character.name !== 'skeleton') {
           character.room?.element?.classList.add('current');
-          character.room!.element!.textContent = character.room!.name;
         }
-        else
-          character.room!.element!.textContent = character.room!.name + ' 💀';
-
       }
     }
     this.character?.buttons();
@@ -306,7 +312,7 @@ export class Game {
   }
 
   startGame = () => {
-    this.channel?.send(JSON.stringify({action: 'unlock'}));
+    this.channel?.send(JSON.stringify({ action: 'unlock' }));
     document.querySelector('.buttons')!.innerHTML = '';
   }
 
