@@ -22,21 +22,24 @@ export class Character {
     const spaces: [(direction | 'up' | 'down'), Room | undefined][] = this.room!.doors.map(d => [d, this.room?.neighbors[d]])
 
     if (this.room?.name === 'stairs') {
+      console.log('skeleton is on stairs');
       const currentLevel = this.room!.level;
       const options = {
         up: {
           basement: 'lower',
-          upper: 'upper',
-          lower: 'upper'
+          lower: 'upper',
+          upper: 'asdf',
         },
         down: {
           upper: 'lower',
           lower: 'basement',
-          basement: 'basement'
+          basement: 'asdf',
         },
       }
-      spaces.push(['up', this.game?.rooms.find(r => r.name === 'stairs' && r.level === options['up'][currentLevel] && currentLevel !== options['up'][currentLevel])]);
-      spaces.push(['down', this.game?.rooms.find(r => r.name === 'stairs' && r.level === options['down'][currentLevel] && currentLevel !== options['down'][currentLevel])]);
+      const up = this.game?.rooms.find(r => r.name === 'stairs' && r.level === options['up'][currentLevel]);
+      const down = this.game?.rooms.find(r => r.name === 'stairs' && r.level === options['down'][currentLevel]);
+      spaces.push(['up', up]);
+      spaces.push(['down', down]);
     }
 
     return spaces.filter(s => !!s[1]);
@@ -119,6 +122,7 @@ export class Character {
       }))
     } else {
       const validSpaces = this.validSpaces;
+      if (this.room?.name === 'stairs') console.log(validSpaces);
       this.room = validSpaces[Math.floor(Math.random() * validSpaces.length)]![1]
     }
   }

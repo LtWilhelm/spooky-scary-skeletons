@@ -19,26 +19,29 @@ class Character {
                 this.room?.neighbors[d]
             ]);
         if (this.room?.name === 'stairs') {
+            console.log('skeleton is on stairs');
             const currentLevel = this.room.level;
             const options = {
                 up: {
                     basement: 'lower',
-                    upper: 'upper',
-                    lower: 'upper'
+                    lower: 'upper',
+                    upper: 'asdf'
                 },
                 down: {
                     upper: 'lower',
                     lower: 'basement',
-                    basement: 'basement'
+                    basement: 'asdf'
                 }
             };
+            const up = this.game?.rooms.find((r)=>r.name === 'stairs' && r.level === options['up'][currentLevel]);
+            const down = this.game?.rooms.find((r)=>r.name === 'stairs' && r.level === options['down'][currentLevel]);
             spaces.push([
                 'up',
-                this.game?.rooms.find((r)=>r.name === 'stairs' && r.level === options['up'][currentLevel] && currentLevel !== options['up'][currentLevel])
+                up
             ]);
             spaces.push([
                 'down',
-                this.game?.rooms.find((r)=>r.name === 'stairs' && r.level === options['down'][currentLevel] && currentLevel !== options['down'][currentLevel])
+                down
             ]);
         }
         return spaces.filter((s)=>!!s[1]);
@@ -116,6 +119,7 @@ class Character {
             }));
         } else {
             const validSpaces = this.validSpaces;
+            if (this.room?.name === 'stairs') console.log(validSpaces);
             this.room = validSpaces[Math.floor(Math.random() * validSpaces.length)][1];
         }
     };
@@ -418,8 +422,8 @@ class Game {
     rooms = [];
     characters = new Map();
     gridSize = {
-        x: 4,
-        y: 5
+        x: 5,
+        y: 6
     };
     grid = new Map();
     entrance = {
@@ -442,6 +446,7 @@ class Game {
         ];
         this.grid = new Map();
         this.rooms = [];
+        this.characters = new Map();
         for (const floor of floors){
             const stairX = Math.floor(Math.random() * this.gridSize.x);
             const stairY = Math.floor(Math.random() * this.gridSize.y);
@@ -473,7 +478,7 @@ class Game {
             }
             if (floor === 'lower') {
                 let entranceX = Math.floor(Math.random() * this.gridSize.x);
-                let entranceY = 4;
+                let entranceY = 5;
                 const entrance = new Room({
                     name: 'entrance',
                     position: {
@@ -533,6 +538,7 @@ class Game {
         for(let i = 0; i < skeletonCount; i++){
             const skeleton = new Character('skeleton');
             skeleton.room = this.grid.get(this.randomSelector());
+            skeleton.game = this;
             this.characters.set(skeleton.uuid, skeleton);
         }
         for (const room2 of this.grid.values())this.rooms.push(room2);
@@ -563,6 +569,7 @@ class Game {
                 if (character.room === room) div.textContent += ' 💀';
             }
             if (room.hasTreasure) div.classList.add('treasure');
+            if (room.name === 'stairs') div.classList.add('stairs');
             floor?.append(div);
             room.element = div;
         }

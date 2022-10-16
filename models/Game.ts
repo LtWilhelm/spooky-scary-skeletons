@@ -9,7 +9,7 @@ export class Game {
   rooms: Room[] = [];
   characters: Map<string, Character> = new Map();
 
-  gridSize = { x: 4, y: 5 };
+  gridSize = { x: 5, y: 6 };
 
   grid: Map<gridAccessor, Room> = new Map();
 
@@ -31,6 +31,7 @@ export class Game {
     const floors: floors[] = ['basement', 'lower', 'upper'];
     this.grid = new Map();
     this.rooms = [];
+    this.characters = new Map();
     for (const floor of floors) {
       const stairX = Math.floor(Math.random() * this.gridSize.x);
       const stairY = Math.floor(Math.random() * this.gridSize.y);
@@ -61,7 +62,7 @@ export class Game {
 
       if (floor === 'lower') {
         let entranceX = Math.floor(Math.random() * this.gridSize.x);
-        let entranceY = 4;
+        let entranceY = 5;
         const entrance = new Room({
           name: 'entrance',
           position: { x: entranceX, y: entranceY },
@@ -121,6 +122,7 @@ export class Game {
     for (let i = 0; i < skeletonCount; i++) {
       const skeleton = new Character('skeleton');
       skeleton.room = this.grid.get(this.randomSelector());
+      skeleton.game = this;
       this.characters.set(skeleton.uuid, skeleton);
       // skeleton.room?.characters.push(skeleton);
     }
@@ -159,6 +161,7 @@ export class Game {
         if (character.room === room) div.textContent += ' 💀'
       }
       if (room.hasTreasure) div.classList.add('treasure');
+      if (room.name === 'stairs') div.classList.add('stairs');
       floor?.append(div);
       room.element = div;
     }
