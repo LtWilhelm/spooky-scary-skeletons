@@ -216,7 +216,6 @@ class Sockpuppet {
     };
     onDisconnect = (callback)=>this.callbacks.get('disconnect')?.push(callback);
     handleMessage = (message)=>{
-        console.log(message.data);
         switch(message.data){
             case "open":
             case "connected":
@@ -224,6 +223,9 @@ class Sockpuppet {
             case "disconnected":
                 this.callbacks.get('disconnect')?.forEach((cb)=>cb(message.data));
                 this.channels.forEach((channel)=>channel.execLeaveListeners());
+                break;
+            case "ping":
+                this.socket.send('pong');
                 break;
             default:
                 try {

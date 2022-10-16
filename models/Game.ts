@@ -2,8 +2,8 @@ import { Character } from "./Character.ts";
 import { direction, floors, gridAccessor, rooms } from "./index.ts";
 import { Room } from "./Room.ts";
 
-import { Sockpuppet } from "https://deno.land/x/sockpuppet@Alpha0.5.2/client/mod.ts";
-import { Channel } from "https://deno.land/x/sockpuppet@Alpha0.5.2/client/Channel.ts";
+import { Sockpuppet } from "https://deno.land/x/sockpuppet@Alpha0.5.3/client/mod.ts";
+import { Channel } from "https://deno.land/x/sockpuppet@Alpha0.5.3/client/Channel.ts";
 
 export class Game {
   rooms: Room[] = [];
