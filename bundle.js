@@ -534,7 +534,7 @@ class Game {
             }
             treasureRoom.hasTreasure = true;
         }
-        const skeletonCount = Number(localStorage.getItem('skeletons') || '3');
+        const skeletonCount = Number(prompt('How many skeletons?') || '3');
         for(let i = 0; i < skeletonCount; i++){
             const skeleton = new Character('skeleton');
             skeleton.room = this.grid.get(this.randomSelector());
