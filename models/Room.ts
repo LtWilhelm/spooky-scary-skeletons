@@ -15,7 +15,7 @@ export class Room {
 
   doors: direction[];
 
-  characters: Character[] = [];
+  characters: Map<string, Character> = new Map();
 
   hasTreasure: boolean;
 

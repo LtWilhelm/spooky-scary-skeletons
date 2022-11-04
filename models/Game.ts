@@ -215,11 +215,33 @@ export class Game {
             room.element!.textContent += ' 💀';
           }
         }
-      }
-      for (const character of this.characters.values()) {
-        if (character.name !== 'skeleton') {
-          character.room?.element?.classList.add('current');
+        const namesInRoom = [];
+        for (const character of this.characters.values()) {
+          if (character.name !== 'skeleton' && character.room === room) {
+            // character.room?.element?.classList.add('current');
+            namesInRoom.push(character.name);
+          }
         }
+        namesInRoom.length && (room.element!.innerHTML = `
+        <svg
+          width="100%"
+          height="100%"
+          viewBox="0 0 ${15 * Math.max(...namesInRoom.map(n => n.length))/2} ${15 * namesInRoom.length}"
+          preserveAspectRatio="xMinYMid meet"
+          xmlns="http://www.w3.org/2000/svg"
+          xmlns:xlink="http://www.w3.org/1999/xlink"
+        >
+          ${namesInRoom.map((n, i) => `
+            <text
+              x=5
+              y=${15 * (i + 1)}
+              fontSize="15"
+            >
+              ${n}
+            </text>
+          `).join('\n')}
+        </svg
+        `)
       }
 
       document.querySelectorAll<HTMLDivElement>('.floor[data-floor]').forEach(f => {
@@ -354,13 +376,31 @@ export class Game {
 
   startGame = () => {
     this.channel?.send(JSON.stringify({ action: 'unlock' }));
-    document.querySelector('.buttons')!.innerHTML = `
+    const buttons = document.querySelector('.buttons');
+    buttons!.innerHTML = `
     <button class="movement" data-dir="up">Up</button>
     <button class="movement" data-dir="down">Down</button>`;
     document.querySelectorAll('.movement[data-dir]').forEach(b => {
       b = b as HTMLButtonElement;
-      b.addEventListener('click', () => this.changeFloor((b as HTMLButtonElement).dataset.dir as 'up'| 'down'))
+      b.addEventListener('click', () => this.changeFloor((b as HTMLButtonElement).dataset.dir as 'up' | 'down'))
     })
+
+    const unlockButton = document.createElement('button');
+    unlockButton.dataset.dir = 'c';
+    unlockButton.addEventListener('click', () => {
+      for (const [id, char] of this.characters.entries()) {
+        if (char.name !== 'skeleton' && !char.hasMoved) {
+          this.characters.delete(id);
+        } else {
+          char.hasMoved = false;
+        }
+      }
+      this.channel?.send(JSON.stringify({ action: 'unlock' }));
+    })
+    unlockButton.textContent = 'Unlock';
+
+    buttons!.append(unlockButton)
+
     this.render();
   }
 

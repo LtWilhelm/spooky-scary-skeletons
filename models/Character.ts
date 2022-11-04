@@ -104,7 +104,7 @@ export class Character {
       }
       if (!this.game?.isHost && this.gatheredTreasures.length === 3 && this.room?.name === 'entrance') {
         this.game!.dialog!.innerHTML = `
-        🎃🎃🎃<br>
+          🎃🎃🎃<br>
           Congratulations! You have collected all of the treasures and escaped to safety!<br>
           🎃🎃🎃
         `

@@ -101,7 +101,7 @@ class Character {
             }
             if (!this.game?.isHost && this.gatheredTreasures.length === 3 && this.room?.name === 'entrance') {
                 this.game.dialog.innerHTML = `
-        🎃🎃🎃<br>
+          🎃🎃🎃<br>
           Congratulations! You have collected all of the treasures and escaped to safety!<br>
           🎃🎃🎃
         `;
@@ -350,7 +350,7 @@ class Room {
     unique;
     game;
     doors;
-    characters = [];
+    characters = new Map();
     hasTreasure;
     element;
     known = false;
@@ -614,11 +614,32 @@ class Game {
                         room1.element.textContent += ' 💀';
                     }
                 }
-            }
-            for (const character1 of this.characters.values()){
-                if (character1.name !== 'skeleton') {
-                    character1.room?.element?.classList.add('current');
+                const namesInRoom = [];
+                for (const character1 of this.characters.values()){
+                    if (character1.name !== 'skeleton' && character1.room === room1) {
+                        namesInRoom.push(character1.name);
+                    }
                 }
+                namesInRoom.length && (room1.element.innerHTML = `
+        <svg
+          width="100%"
+          height="100%"
+          viewBox="0 0 ${15 * Math.max(...namesInRoom.map((n)=>n.length)) / 2} ${15 * namesInRoom.length}"
+          preserveAspectRatio="xMinYMid meet"
+          xmlns="http://www.w3.org/2000/svg"
+          xmlns:xlink="http://www.w3.org/1999/xlink"
+        >
+          ${namesInRoom.map((n, i)=>`
+            <text
+              x=5
+              y=${15 * (i + 1)}
+              fontSize="15"
+            >
+              ${n}
+            </text>
+          `).join('\n')}
+        </svg
+        `);
             }
             document.querySelectorAll('.floor[data-floor]').forEach((f)=>{
                 const floor = f.dataset.floor;
@@ -738,13 +759,30 @@ class Game {
         this.channel?.send(JSON.stringify({
             action: 'unlock'
         }));
-        document.querySelector('.buttons').innerHTML = `
+        const buttons = document.querySelector('.buttons');
+        buttons.innerHTML = `
     <button class="movement" data-dir="up">Up</button>
     <button class="movement" data-dir="down">Down</button>`;
         document.querySelectorAll('.movement[data-dir]').forEach((b)=>{
             b = b;
             b.addEventListener('click', ()=>this.changeFloor(b.dataset.dir));
         });
+        const unlockButton = document.createElement('button');
+        unlockButton.dataset.dir = 'c';
+        unlockButton.addEventListener('click', ()=>{
+            for (const [id, __char] of this.characters.entries()){
+                if (__char.name !== 'skeleton' && !__char.hasMoved) {
+                    this.characters.delete(id);
+                } else {
+                    __char.hasMoved = false;
+                }
+            }
+            this.channel?.send(JSON.stringify({
+                action: 'unlock'
+            }));
+        });
+        unlockButton.textContent = 'Unlock';
+        buttons.append(unlockButton);
         this.render();
     };
     joinGame = ()=>{

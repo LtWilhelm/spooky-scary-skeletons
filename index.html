@@ -32,6 +32,7 @@
       aspect-ratio: 5/6;
       width: 30%;
       border: 1px purple solid;
+      background-color: gray;
     }
 
     .floor:empty {
@@ -141,6 +142,9 @@
     [data-dir=down] { 
       grid-area: down;
     }
+    [data-dir=c] {
+      grid-area: c;
+    }
 
     .buttons {
       display: grid;
@@ -174,6 +178,12 @@
 
     .stairs {
       background-color: green;
+    }
+
+    svg {
+      max-width: 100%;
+      max-height: 100%;
+      fill: white;
     }
 
     @media screen and (max-width: 480px) {
