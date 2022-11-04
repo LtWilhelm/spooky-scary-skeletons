@@ -226,7 +226,7 @@ export class Game {
         <svg
           width="100%"
           height="100%"
-          viewBox="0 0 ${15 * Math.max(...namesInRoom.map(n => n.length))/2} ${15 * namesInRoom.length}"
+          viewBox="0 0 ${Math.max(100, 15 * Math.max(...namesInRoom.map(n => n.length)))} ${15 * namesInRoom.length}"
           preserveAspectRatio="xMinYMid meet"
           xmlns="http://www.w3.org/2000/svg"
           xmlns:xlink="http://www.w3.org/1999/xlink"
