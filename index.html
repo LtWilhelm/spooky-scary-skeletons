@@ -15,10 +15,10 @@
 
     body {
       background-color: #221122;
-      background-image: url('./purple-happy-halloween-mansion-v5anzizgwawhrl9u.jpg');
+      background-image: url('https://i.pinimg.com/originals/06/d8/b1/06d8b19a21a3f332e54ef23883be74cb.jpg');
       background-position: center;
       background-repeat: no-repeat;
-      /* background-size: cover; */
+      background-size: cover;
       height: 100vh;
       margin: 0;
       padding: 1em;
@@ -36,8 +36,8 @@
     }
 
     .floor:empty {
-      background-image: url('https://static.vecteezy.com/system/resources/previews/010/329/632/original/cartoon-halloween-kids-clipart-skeleton-free-png.png');
-      background-size: contain;
+      background-image: url('https://media.istockphoto.com/id/1064920734/vector/little-elf-with-gift-present-isolated.jpg?s=612x612&w=0&k=20&c=BIUE5H7R5eKg1voT1ZcpDdLUwZlGGlHPB2InQtmuG8k=');
+      background-size: cover;
       background-repeat: no-repeat;
       background-position: center;
     }
@@ -114,8 +114,8 @@
     }
 
     button {
-      background-color: orange;
-      color: black;
+      background-color: green;
+      color: white;
       border: none;
       border-radius: 1rem;
       font-size: larger;
@@ -206,6 +206,20 @@
       }
     }
 
+    .floor-name, h1 {
+      border-radius: 5px;
+      background-color: green;
+    }
+    .floor-name:not(:empty){
+      padding: 1rem;
+    }
+
+    h1 {
+      width: min-content;
+      padding: 1rem;
+      white-space: nowrap;
+    }
+
     @media screen and (min-width: 480px) {
       .floor.hidden {
         opacity: 1;
@@ -220,7 +234,7 @@
 </head>
 
 <body>
-  <h1>Spooky Scary Skeletons</h1>
+  <h1>Happy Jolly Christmas Elves</h1>
   <div class="flex">
     <h3 class="floor-name"></h3>
     <h3 class="score"></h3>
@@ -233,11 +247,17 @@
   </container>
 
   <dialog>
+    🎅🎅🎅<br>
+    The elves found you sneaking around before Christmas!<br/>
+    They've taken you to the dungeon for being NAUGHTY<br>
+    🎅🎅🎅
+  </dialog>
+  <!-- <dialog>
     💀💀💀<br>
     You've been grabbed by the ghoulies!<br/>
     They've taken you to the dungeon!<br>
     💀💀💀
-  </dialog>
+  </dialog> -->
 
   <div class="buttons">
   </div>

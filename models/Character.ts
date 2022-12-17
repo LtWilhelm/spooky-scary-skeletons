@@ -22,7 +22,6 @@ export class Character {
     const spaces: [(direction | 'up' | 'down'), Room | undefined][] = this.room!.doors.map(d => [d, this.room?.neighbors[d]])
 
     if (this.room?.name === 'stairs') {
-      console.log('skeleton is on stairs');
       const currentLevel = this.room!.level;
       const options = {
         up: {
@@ -122,7 +121,6 @@ export class Character {
       }))
     } else {
       const validSpaces = this.validSpaces;
-      if (this.room?.name === 'stairs') console.log(validSpaces);
       this.room = validSpaces[Math.floor(Math.random() * validSpaces.length)]![1]
     }
   }

@@ -119,7 +119,7 @@ export class Game {
       treasureRoom.hasTreasure = true;
     }
 
-    const skeletonCount = Number(prompt('How many skeletons?') || '3');
+    const skeletonCount = Number(prompt('How many elves?') || '3');
 
     for (let i = 0; i < skeletonCount; i++) {
       const skeleton = new Character('skeleton');
@@ -202,7 +202,7 @@ export class Game {
       }
 
       document.querySelector('.floor-name')!.textContent = nameDict[this.character!.room!.level];
-      document.querySelector('.score')!.textContent = `You have gathered ${this.character?.gatheredTreasures.length} treasures`;
+      document.querySelector('.score')!.textContent = `You have gathered ${this.character?.gatheredTreasures.length} presents!`;
     }
 
 
@@ -338,6 +338,10 @@ export class Game {
     const channelId = 'spooky_scary_skeletons';
     await this.puppet.createChannel(channelId);
 
+    this.puppet.on('ping', (e) => {
+      console.log(e)
+    });
+
     this.puppet.joinChannel(channelId, (msg) => {
       const message = JSON.parse(msg) as socketPacket;
 
@@ -445,9 +449,9 @@ export class Game {
         case 'win': {
           this.character!.hasMoved = true;
           this.dialog!.innerHTML = `
-          🎃🎃🎃<br>
-          ${message.playerName} has collected all of the treasures and escaped to safety!<br>
-          🎃🎃🎃
+          🎁🎁🎁<br>
+          ${message.playerName} has collected all of the presents and escaped to safety!<br>
+          🎁🎁🎁
           `
           this.dialog?.showModal();
         }
