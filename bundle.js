@@ -19,7 +19,6 @@ class Character {
                 this.room?.neighbors[d]
             ]);
         if (this.room?.name === 'stairs') {
-            console.log('skeleton is on stairs');
             const currentLevel = this.room.level;
             const options = {
                 up: {
@@ -119,7 +118,6 @@ class Character {
             }));
         } else {
             const validSpaces = this.validSpaces;
-            if (this.room?.name === 'stairs') console.log(validSpaces);
             this.room = validSpaces[Math.floor(Math.random() * validSpaces.length)][1];
         }
     };
@@ -537,7 +535,7 @@ class Game {
             }
             treasureRoom.hasTreasure = true;
         }
-        const skeletonCount = Number(prompt('How many skeletons?') || '3');
+        const skeletonCount = Number(prompt('How many elves?') || '3');
         for(let i = 0; i < skeletonCount; i++){
             const skeleton = new Character('skeleton');
             skeleton.room = this.grid.get(this.randomSelector());
