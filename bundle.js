@@ -100,9 +100,9 @@ class Character {
             }
             if (!this.game?.isHost && this.gatheredTreasures.length === 3 && this.room?.name === 'entrance') {
                 this.game.dialog.innerHTML = `
-          🎃🎃🎃<br>
+          🎄🎄🎄<br>
           Congratulations! You have collected all of the treasures and escaped to safety!<br>
-          🎃🎃🎃
+          🎄🎄🎄
         `;
                 this.game?.dialog?.showModal();
                 this.game?.channel?.send(JSON.stringify({
@@ -280,6 +280,23 @@ class Sockpuppet {
     };
 }
 const isFullUrl = (url)=>/(wss?|https?):\/\/.+\.(io|com|org|net)(\/.*)?/i.test(url) || url.includes('localhost');
+const solver = (rooms)=>{
+    const basementStairs = rooms.find((r)=>r.name === 'stairs' && r.level === 'basement');
+    const lowerStairs = rooms.find((r)=>r.name === 'stairs' && r.level === 'lower');
+    const upperStairs = rooms.find((r)=>r.name === 'stairs' && r.level === 'upper');
+    return recursiveSearch(basementStairs, [], 'dungeon') && recursiveSearch(basementStairs, [], 'treasure') && recursiveSearch(lowerStairs, [], 'entrance') && recursiveSearch(lowerStairs, [], 'treasure') && recursiveSearch(upperStairs, [], 'treasure');
+};
+const recursiveSearch = (current, last, target)=>{
+    if (target === 'treasure' && current.hasTreasure) return true;
+    if (target === current.name) return true;
+    for (const door of current.doors){
+        if (current.neighbors[door] && !last.includes(current.neighbors[door]) && recursiveSearch(current.neighbors[door], [
+            ...last,
+            current
+        ], target)) return true;
+    }
+    return false;
+};
 const rooms = [
     {
         name: 'bedroom',
@@ -440,109 +457,114 @@ class Game {
         this.render();
     };
     generate = ()=>{
-        const floors = [
-            'basement',
-            'lower',
-            'upper'
-        ];
-        this.grid = new Map();
-        this.rooms = [];
-        this.characters = new Map();
-        for (const floor of floors){
-            const stairX = Math.floor(Math.random() * this.gridSize.x);
-            const stairY = Math.floor(Math.random() * this.gridSize.y);
-            const stairs = new Room({
-                name: 'stairs',
-                position: {
-                    x: stairX,
-                    y: stairY
-                },
-                level: floor
-            }, this);
-            this.grid.set(`${stairX},${stairY},${floor}`, stairs);
-            if (floor === 'basement') {
-                let dungeonX = Math.floor(Math.random() * this.gridSize.x);
-                let dungeonY = Math.floor(Math.random() * this.gridSize.y);
-                const dungeon = new Room({
-                    name: 'dungeon',
+        let solvable = false;
+        const skeletonCount = Number(prompt('How many elves?') || '3');
+        while(!solvable){
+            console.log("GENERATING NEW MAP");
+            const floors = [
+                'basement',
+                'lower',
+                'upper'
+            ];
+            this.grid = new Map();
+            this.rooms = [];
+            this.characters = new Map();
+            for (const floor of floors){
+                const stairX = Math.floor(Math.random() * this.gridSize.x);
+                const stairY = Math.floor(Math.random() * this.gridSize.y);
+                const stairs = new Room({
+                    name: 'stairs',
                     position: {
-                        x: dungeonX,
-                        y: dungeonY
+                        x: stairX,
+                        y: stairY
                     },
                     level: floor
                 }, this);
-                while(this.grid.get(`${dungeonX},${dungeonY},${floor}`)){
-                    dungeonX = Math.floor(Math.random() * this.gridSize.x);
-                    dungeonY = Math.floor(Math.random() * this.gridSize.y);
+                this.grid.set(`${stairX},${stairY},${floor}`, stairs);
+                if (floor === 'basement') {
+                    let dungeonX = Math.floor(Math.random() * this.gridSize.x);
+                    let dungeonY = Math.floor(Math.random() * this.gridSize.y);
+                    const dungeon = new Room({
+                        name: 'dungeon',
+                        position: {
+                            x: dungeonX,
+                            y: dungeonY
+                        },
+                        level: floor
+                    }, this);
+                    while(this.grid.get(`${dungeonX},${dungeonY},${floor}`)){
+                        dungeonX = Math.floor(Math.random() * this.gridSize.x);
+                        dungeonY = Math.floor(Math.random() * this.gridSize.y);
+                    }
+                    this.grid.set(`${dungeonX},${dungeonY},${floor}`, dungeon);
                 }
-                this.grid.set(`${dungeonX},${dungeonY},${floor}`, dungeon);
-            }
-            if (floor === 'lower') {
-                let entranceX = Math.floor(Math.random() * this.gridSize.x);
-                let entranceY = 5;
-                const entrance = new Room({
-                    name: 'entrance',
-                    position: {
+                if (floor === 'lower') {
+                    let entranceX = Math.floor(Math.random() * this.gridSize.x);
+                    let entranceY = 5;
+                    const entrance = new Room({
+                        name: 'entrance',
+                        position: {
+                            x: entranceX,
+                            y: entranceY
+                        },
+                        level: floor
+                    }, this);
+                    entrance.known = true;
+                    while(this.grid.get(`${entranceX},${entranceY},${floor}`)){
+                        entranceX = Math.floor(Math.random() * this.gridSize.x);
+                        entranceY = Math.floor(Math.random() * this.gridSize.y);
+                    }
+                    this.grid.set(`${entranceX},${entranceY},${floor}`, entrance);
+                    this.entrance = {
                         x: entranceX,
                         y: entranceY
-                    },
-                    level: floor
-                }, this);
-                entrance.known = true;
-                while(this.grid.get(`${entranceX},${entranceY},${floor}`)){
-                    entranceX = Math.floor(Math.random() * this.gridSize.x);
-                    entranceY = Math.floor(Math.random() * this.gridSize.y);
+                    };
                 }
-                this.grid.set(`${entranceX},${entranceY},${floor}`, entrance);
-                this.entrance = {
-                    x: entranceX,
-                    y: entranceY
-                };
-            }
-            for(let x = 0; x < this.gridSize.x; x++){
-                for(let y = 0; y < this.gridSize.y; y++){
-                    if (!this.grid.get(`${x},${y},${floor}`)) {
-                        const validRooms = rooms.filter((r)=>r.floors.includes(floor));
-                        const selectedRoom = validRooms[Math.floor(Math.random() * validRooms.length)];
-                        const room = new Room({
-                            name: selectedRoom.name,
-                            level: floor,
-                            position: {
-                                x,
-                                y
-                            }
-                        }, this);
-                        this.grid.set(`${x},${y},${floor}`, room);
+                for(let x = 0; x < this.gridSize.x; x++){
+                    for(let y = 0; y < this.gridSize.y; y++){
+                        if (!this.grid.get(`${x},${y},${floor}`)) {
+                            const validRooms = rooms.filter((r)=>r.floors.includes(floor));
+                            const selectedRoom = validRooms[Math.floor(Math.random() * validRooms.length)];
+                            const room = new Room({
+                                name: selectedRoom.name,
+                                level: floor,
+                                position: {
+                                    x,
+                                    y
+                                }
+                            }, this);
+                            this.grid.set(`${x},${y},${floor}`, room);
+                        }
                     }
                 }
             }
-        }
-        for (const floor1 of floors){
-            for(let x1 = 0; x1 < this.gridSize.x; x1++){
-                for(let y1 = 0; y1 < this.gridSize.y; y1++){
-                    const room1 = this.grid.get(`${x1},${y1},${floor1}`);
-                    room1?.generateDoors();
+            for (const floor1 of floors){
+                for(let x1 = 0; x1 < this.gridSize.x; x1++){
+                    for(let y1 = 0; y1 < this.gridSize.y; y1++){
+                        const room1 = this.grid.get(`${x1},${y1},${floor1}`);
+                        room1?.generateDoors();
+                    }
                 }
+                const bannedRooms = [
+                    'hallway',
+                    'stairs',
+                    "entrance"
+                ];
+                let treasureRoom = this.grid.get(this.randomSelector(floor1));
+                while(!treasureRoom?.doors.length || bannedRooms.includes(treasureRoom.name)){
+                    treasureRoom = this.grid.get(this.randomSelector(floor1));
+                }
+                treasureRoom.hasTreasure = true;
             }
-            const bannedRooms = [
-                'hallway',
-                'stairs',
-                "entrance"
-            ];
-            let treasureRoom = this.grid.get(this.randomSelector(floor1));
-            while(!treasureRoom?.doors.length || bannedRooms.includes(treasureRoom.name)){
-                treasureRoom = this.grid.get(this.randomSelector(floor1));
+            for(let i = 0; i < skeletonCount; i++){
+                const skeleton = new Character('skeleton');
+                skeleton.room = this.grid.get(this.randomSelector());
+                skeleton.game = this;
+                this.characters.set(skeleton.uuid, skeleton);
             }
-            treasureRoom.hasTreasure = true;
+            for (const room2 of this.grid.values())this.rooms.push(room2);
+            solvable = solver(this.rooms);
         }
-        const skeletonCount = Number(prompt('How many elves?') || '3');
-        for(let i = 0; i < skeletonCount; i++){
-            const skeleton = new Character('skeleton');
-            skeleton.room = this.grid.get(this.randomSelector());
-            skeleton.game = this;
-            this.characters.set(skeleton.uuid, skeleton);
-        }
-        for (const room2 of this.grid.values())this.rooms.push(room2);
     };
     init = ()=>{
         const rooms = Array.from(this.grid.values()).sort((a)=>{
