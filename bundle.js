@@ -101,7 +101,7 @@ class Character {
             if (!this.game?.isHost && this.gatheredTreasures.length === 3 && this.room?.name === 'entrance') {
                 this.game.dialog.innerHTML = `
           🎄🎄🎄<br>
-          Congratulations! You have collected all of the treasures and escaped to safety!<br>
+          Congratulations! You have collected all of the presents and escaped to safety!<br>
           🎄🎄🎄
         `;
                 this.game?.dialog?.showModal();
@@ -168,13 +168,17 @@ class Sockpuppet {
     socket;
     channels;
     callbacks;
-    constructor(path, onConnect){
+    initialPing;
+    keepAlive = true;
+    constructor(path, onConnect, options){
         if (isFullUrl(path)) this.socket = new WebSocket(path);
         else this.socket = new WebSocket(`${window.location.host}${path}`);
         if (onConnect) this.socket.addEventListener('open', ()=>{
             onConnect();
         });
+        this.keepAlive = options?.keepAlive ?? this.keepAlive;
         this.socket.addEventListener('message', this.handleMessage);
+        if (this.keepAlive) this.initialPing = setTimeout(()=>this.socket.send('pong'), 5000);
         this.channels = new Map();
         this.callbacks = new Map([
             [
@@ -223,7 +227,8 @@ class Sockpuppet {
                 this.channels.forEach((channel)=>channel.execLeaveListeners());
                 break;
             case "ping":
-                this.socket.send('pong');
+                clearTimeout(this.initialPing);
+                if (this.keepAlive) this.socket.send('pong');
                 break;
             default:
                 try {
@@ -349,7 +354,7 @@ const rooms = [
         floors: [
             'basement'
         ]
-    }, 
+    }
 ];
 const directions = [
     'north',
