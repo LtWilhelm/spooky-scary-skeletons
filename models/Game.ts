@@ -378,6 +378,17 @@ export class Game {
           this.checkPlayerMoves();
           break;
         }
+        case 'win': {
+          const buttons = document.querySelector('.buttons');
+          const butt = document.createElement('button');
+          butt.dataset.dir = 'north';
+          butt.textContent = 'Continue';
+          butt.addEventListener('click', () => {
+            this.channel?.send(JSON.stringify({ action: 'continue' }));
+            butt.remove();
+          })
+          buttons?.append(butt);
+        }
       }
     })
 
@@ -450,7 +461,6 @@ export class Game {
         case 'unlock': {
           this.character!.hasMoved = false;
           this.character?.buttons();
-          this.dialog?.close();
           break;
         }
         case 'win': {
@@ -461,6 +471,12 @@ export class Game {
           🎁🎁🎁
           `
           this.dialog?.showModal();
+          break;
+        }
+        case 'continue': {
+          this.character!.hasMoved = false;
+          this.character?.buttons();
+          this.dialog?.close();
         }
       }
     });
@@ -483,7 +499,7 @@ export class Game {
 }
 
 interface socketPacket {
-  action: 'join' | 'move' | 'win' | 'captured' | 'map' | 'unlock';
+  action: 'join' | 'move' | 'win' | 'captured' | 'map' | 'unlock' | 'continue';
   playerId: string;
   playerName: string;
   direction?: direction | 'up' | 'down';
