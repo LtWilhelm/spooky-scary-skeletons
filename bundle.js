@@ -851,6 +851,7 @@ class Game {
                     {
                         this.character.hasMoved = false;
                         this.character?.buttons();
+                        this.dialog?.close();
                         break;
                     }
                 case 'win':

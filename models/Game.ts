@@ -450,6 +450,7 @@ export class Game {
         case 'unlock': {
           this.character!.hasMoved = false;
           this.character?.buttons();
+          this.dialog?.close();
           break;
         }
         case 'win': {
