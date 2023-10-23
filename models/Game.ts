@@ -32,7 +32,7 @@ export class Game {
 
   generate = () => {
     let solvable = false;
-    const skeletonCount = Number(prompt('How many elves?') || '3');
+    const skeletonCount = Number(prompt('How many skeletons?') || '3');
     while (!solvable) {
       console.log("GENERATING NEW MAP");
       const floors: floors[] = ['basement', 'lower', 'upper'];
@@ -208,7 +208,7 @@ export class Game {
       }
 
       document.querySelector('.floor-name')!.textContent = nameDict[this.character!.room!.level];
-      document.querySelector('.score')!.textContent = `You have gathered ${this.character?.gatheredTreasures.length} presents!`;
+      document.querySelector('.score')!.textContent = `You have gathered ${this.character?.gatheredTreasures.length} treasures!`;
     }
 
 
@@ -388,6 +388,12 @@ export class Game {
             butt.remove();
           })
           buttons?.append(butt);
+          break;
+        }
+        case 'score': {
+          const char = this.characters.get(message.playerId);
+          if (!char) break;
+          char.score += message.score || 0;
         }
       }
     })
@@ -466,9 +472,9 @@ export class Game {
         case 'win': {
           this.character!.hasMoved = true;
           this.dialog!.innerHTML = `
-          🎁🎁🎁<br>
-          ${message.playerName} has collected all of the presents and escaped to safety!<br>
-          🎁🎁🎁
+          🎃🎃🎃<br>
+          ${message.playerName} has collected all of the treasures and escaped to safety!<br>
+          🎃🎃🎃
           `
           this.dialog?.showModal();
           break;
@@ -499,11 +505,12 @@ export class Game {
 }
 
 interface socketPacket {
-  action: 'join' | 'move' | 'win' | 'captured' | 'map' | 'unlock' | 'continue';
+  action: 'join' | 'move' | 'win' | 'captured' | 'map' | 'unlock' | 'continue' | 'score';
   playerId: string;
   playerName: string;
   direction?: direction | 'up' | 'down';
   map?: Partial<Room>[];
+  score?: number;
 }
 
 

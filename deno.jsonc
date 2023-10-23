@@ -6,5 +6,8 @@
       "es2016"
     ]
   },
-  "noExplicitAny": false
+  "noExplicitAny": false,
+  "tasks": {
+    "dev": "deno bundle --watch index.ts bundle.js"
+  }
 }

@@ -11,7 +11,9 @@ export class Character {
 
   hasMoved = true;
 
-  gatheredTreasures: string[] = []
+  gatheredTreasures: string[] = [];
+
+  score = 0;
 
   constructor(name: string) {
     this.name = name;
@@ -103,9 +105,9 @@ export class Character {
       }
       if (!this.game?.isHost && this.gatheredTreasures.length === 3 && this.room?.name === 'entrance') {
         this.game!.dialog!.innerHTML = `
-          🎄🎄🎄<br>
-          Congratulations! You have collected all of the presents and escaped to safety!<br>
-          🎄🎄🎄
+          🎃🎃🎃<br>
+          Congratulations! You have collected all of the treasures and escaped to safety!<br>
+          🎃🎃🎃
         `
         this.game?.dialog?.showModal();
         this.game?.channel?.send(JSON.stringify({
@@ -123,5 +125,9 @@ export class Character {
       const validSpaces = this.validSpaces;
       this.room = validSpaces[Math.floor(Math.random() * validSpaces.length)]![1]
     }
+  }
+
+  searchRoom = () => {
+    
   }
 }

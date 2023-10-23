@@ -9,6 +9,7 @@ class Character {
     game;
     hasMoved = true;
     gatheredTreasures = [];
+    score = 0;
     constructor(name){
         this.name = name;
         this.uuid = window.crypto.randomUUID();
@@ -100,9 +101,9 @@ class Character {
             }
             if (!this.game?.isHost && this.gatheredTreasures.length === 3 && this.room?.name === 'entrance') {
                 this.game.dialog.innerHTML = `
-          🎄🎄🎄<br>
-          Congratulations! You have collected all of the presents and escaped to safety!<br>
-          🎄🎄🎄
+          🎃🎃🎃<br>
+          Congratulations! You have collected all of the treasures and escaped to safety!<br>
+          🎃🎃🎃
         `;
                 this.game?.dialog?.showModal();
                 this.game?.channel?.send(JSON.stringify({
@@ -121,6 +122,7 @@ class Character {
             this.room = validSpaces[Math.floor(Math.random() * validSpaces.length)][1];
         }
     };
+    searchRoom = ()=>{};
 }
 class Channel {
     id;
@@ -240,8 +242,8 @@ class Sockpuppet {
                     this.callbacks.get(msg.event || msg.message)?.forEach((cb)=>cb(msg));
                     this.channels.get(msg.to)?.execListeners(msg.message);
                 } catch (_e) {
-                    const msg1 = message.data;
-                    this.callbacks.get(msg1)?.forEach((cb)=>cb(msg1));
+                    const msg = message.data;
+                    this.callbacks.get(msg)?.forEach((cb)=>cb(msg));
                 }
                 break;
         }
@@ -286,19 +288,22 @@ class Sockpuppet {
 }
 const isFullUrl = (url)=>/(wss?|https?):\/\/.+\.(io|com|org|net)(\/.*)?/i.test(url) || url.includes('localhost');
 const solver = (rooms)=>{
-    const basementStairs = rooms.find((r)=>r.name === 'stairs' && r.level === 'basement');
-    const lowerStairs = rooms.find((r)=>r.name === 'stairs' && r.level === 'lower');
-    const upperStairs = rooms.find((r)=>r.name === 'stairs' && r.level === 'upper');
-    return recursiveSearch(basementStairs, [], 'dungeon') && recursiveSearch(basementStairs, [], 'treasure') && recursiveSearch(lowerStairs, [], 'entrance') && recursiveSearch(lowerStairs, [], 'treasure') && recursiveSearch(upperStairs, [], 'treasure');
+    const basementStairs = rooms.find((r)=>r.name === "stairs" && r.level === "basement");
+    const lowerStairs = rooms.find((r)=>r.name === "stairs" && r.level === "lower");
+    const upperStairs = rooms.find((r)=>r.name === "stairs" && r.level === "upper");
+    return recursiveSearch(basementStairs, [], "dungeon") && recursiveSearch(basementStairs, [], "treasure") && recursiveSearch(lowerStairs, [], "entrance") && recursiveSearch(lowerStairs, [], "treasure") && recursiveSearch(upperStairs, [], "treasure");
 };
 const recursiveSearch = (current, last, target)=>{
-    if (target === 'treasure' && current.hasTreasure) return true;
+    if (target === "treasure" && current.hasTreasure) return true;
     if (target === current.name) return true;
+    if (target === current) return true;
     for (const door of current.doors){
         if (current.neighbors[door] && !last.includes(current.neighbors[door]) && recursiveSearch(current.neighbors[door], [
             ...last,
             current
-        ], target)) return true;
+        ], target)) {
+            return true;
+        }
     }
     return false;
 };
@@ -434,6 +439,22 @@ class Room {
     get accessor() {
         return `${this.position.x},${this.position.y},${this.level}`;
     }
+    get lootTable() {
+        switch(this.name){
+            case "hallway":
+            case "stairs":
+            case "dining room":
+            case "bedroom":
+            case "parlor":
+            case "library":
+            case "cellar":
+            case "dungeon":
+            case "entrance":
+            case "catacomb":
+            case "alcoves":
+        }
+        return [];
+    }
 }
 const floors = [
     'basement',
@@ -463,7 +484,7 @@ class Game {
     };
     generate = ()=>{
         let solvable = false;
-        const skeletonCount = Number(prompt('How many elves?') || '3');
+        const skeletonCount = Number(prompt('How many skeletons?') || '3');
         while(!solvable){
             console.log("GENERATING NEW MAP");
             const floors = [
@@ -543,11 +564,11 @@ class Game {
                     }
                 }
             }
-            for (const floor1 of floors){
-                for(let x1 = 0; x1 < this.gridSize.x; x1++){
-                    for(let y1 = 0; y1 < this.gridSize.y; y1++){
-                        const room1 = this.grid.get(`${x1},${y1},${floor1}`);
-                        room1?.generateDoors();
+            for (const floor of floors){
+                for(let x = 0; x < this.gridSize.x; x++){
+                    for(let y = 0; y < this.gridSize.y; y++){
+                        const room = this.grid.get(`${x},${y},${floor}`);
+                        room?.generateDoors();
                     }
                 }
                 const bannedRooms = [
@@ -555,9 +576,9 @@ class Game {
                     'stairs',
                     "entrance"
                 ];
-                let treasureRoom = this.grid.get(this.randomSelector(floor1));
+                let treasureRoom = this.grid.get(this.randomSelector(floor));
                 while(!treasureRoom?.doors.length || bannedRooms.includes(treasureRoom.name)){
-                    treasureRoom = this.grid.get(this.randomSelector(floor1));
+                    treasureRoom = this.grid.get(this.randomSelector(floor));
                 }
                 treasureRoom.hasTreasure = true;
             }
@@ -567,7 +588,7 @@ class Game {
                 skeleton.game = this;
                 this.characters.set(skeleton.uuid, skeleton);
             }
-            for (const room2 of this.grid.values())this.rooms.push(room2);
+            for (const room of this.grid.values())this.rooms.push(room);
             solvable = solver(this.rooms);
         }
     };
@@ -628,24 +649,24 @@ class Game {
                 basement: 'Basement'
             };
             document.querySelector('.floor-name').textContent = nameDict[this.character.room.level];
-            document.querySelector('.score').textContent = `You have gathered ${this.character?.gatheredTreasures.length} presents!`;
+            document.querySelector('.score').textContent = `You have gathered ${this.character?.gatheredTreasures.length} treasures!`;
         }
         if (this.isHost) {
             const skeletons = Array.from(this.characters.values()).filter((c)=>c.name === 'skeleton');
-            for (const room1 of this.rooms){
-                room1.element.textContent = room1.name;
+            for (const room of this.rooms){
+                room.element.textContent = room.name;
                 for (const character of skeletons){
-                    if (character.room === room1) {
-                        room1.element.textContent += ' 💀';
+                    if (character.room === room) {
+                        room.element.textContent += ' 💀';
                     }
                 }
                 const namesInRoom = [];
-                for (const character1 of this.characters.values()){
-                    if (character1.name !== 'skeleton' && character1.room === room1) {
-                        namesInRoom.push(character1.name);
+                for (const character of this.characters.values()){
+                    if (character.name !== 'skeleton' && character.room === room) {
+                        namesInRoom.push(character.name);
                     }
                 }
-                namesInRoom.length && (room1.element.innerHTML = `
+                namesInRoom.length && (room.element.innerHTML = `
         <svg
           width="100%"
           height="100%"
@@ -674,12 +695,12 @@ class Game {
                     f.classList.add('hidden');
                 }
             });
-            const nameDict1 = {
+            const nameDict = {
                 lower: 'Ground Floor',
                 upper: 'Upstairs',
                 basement: 'Basement'
             };
-            document.querySelector('.floor-name').textContent = nameDict1[this.floor];
+            document.querySelector('.floor-name').textContent = nameDict[this.floor];
         }
         this.character?.buttons();
     };
@@ -792,6 +813,13 @@ class Game {
                             butt.remove();
                         });
                         buttons?.append(butt);
+                        break;
+                    }
+                case 'score':
+                    {
+                        const __char = this.characters.get(message.playerId);
+                        if (!__char) break;
+                        __char.score += message.score || 0;
                     }
             }
         });
@@ -871,9 +899,9 @@ class Game {
                     {
                         this.character.hasMoved = true;
                         this.dialog.innerHTML = `
-          🎁🎁🎁<br>
-          ${message.playerName} has collected all of the presents and escaped to safety!<br>
-          🎁🎁🎁
+          🎃🎃🎃<br>
+          ${message.playerName} has collected all of the treasures and escaped to safety!<br>
+          🎃🎃🎃
           `;
                         this.dialog?.showModal();
                         break;

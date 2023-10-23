@@ -106,4 +106,21 @@ export class Room {
   get accessor() {
     return `${this.position.x},${this.position.y},${this.level}`
   }
+
+  get lootTable(): {name: string, type: 'points' | 'item', value?: number}[] {
+    switch(this.name) {
+      case "hallway":
+      case "stairs":
+      case "dining room":
+      case "bedroom":
+      case "parlor":
+      case "library":
+      case "cellar":
+      case "dungeon":
+      case "entrance":
+      case "catacomb":
+      case "alcoves":
+    }
+    return []
+  }
 }
