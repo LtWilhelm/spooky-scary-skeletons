@@ -426,11 +426,16 @@ export class Game {
     for (const character of characters) {
       if (character.name !== "skeleton") {
         for (const skeleton of skeletons) {
-          if (character.room === skeleton.room) {
+          if (!character.safe && character.room === skeleton.room) {
             character.room?.element?.classList.remove("current");
             character.room = this.rooms.find((r) => r.name === "dungeon")!;
             this.channel?.send(JSON.stringify({
               action: "captured",
+              playerId: character.uuid,
+            }));
+          } else {
+            this.channel?.send(JSON.stringify({
+              action: "success",
               playerId: character.uuid,
             }));
           }
@@ -625,6 +630,25 @@ export class Game {
           }
           break;
         }
+        case "success": {
+          if (
+            this.character?.gatheredTreasures.length === 3 &&
+            this.character.room?.name === "entrance"
+          ) {
+            this.dialog!.innerHTML = `
+          🎃🎃🎃<br>
+          Congratulations! You have collected all of the treasures and escaped to safety!<br>
+          🎃🎃🎃
+        `;
+            this.dialog?.showModal();
+            this.channel?.send(JSON.stringify({
+              action: "win",
+              playerName: this.character.name,
+            }));
+            this.character.safe = true;
+          }
+          break;
+        }
         case "unlock": {
           this.character!.hasMoved = false;
           this.character?.buttons();
@@ -656,6 +680,7 @@ export class Game {
 
           for (const char of message.charsInRoom) {
             const [uuid, name] = char.split(",");
+            if (uuid === this.character.uuid) continue;
             const c = this.characters.get(uuid) || new Character(name);
             c.uuid = uuid;
             this.characters.set(c.uuid, c);
@@ -689,6 +714,7 @@ interface socketPacket {
     | "move"
     | "win"
     | "captured"
+    | "success"
     | "map"
     | "unlock"
     | "continue"

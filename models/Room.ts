@@ -2,6 +2,7 @@ import { Vector } from "doodler";
 import { Character } from "./Character.ts";
 import { Game } from "./Game.ts";
 import { direction, directions, floors, rooms } from "./index.ts";
+import { imageLibrary } from "../images.ts";
 
 export class Room {
   level: floors;
@@ -49,52 +50,63 @@ export class Room {
     this.doorImage = new Image(32, 32);
 
     this.game = g;
-    this.doorImage.src = this.level === "basement"
-      ? "./assets/images/rooms/basement door.png"
-      : "./assets/images/rooms/door.png";
+
+    this.doorImage = this.level === "basement"
+      ? imageLibrary.basementDoor
+      : imageLibrary.door;
 
     switch (this.name) {
       case "hallway":
-        this.image.src = this.level !== "basement"
-          ? "./assets/images/rooms/hallway/hallway.png"
-          : "./assets/images/rooms/hallway/basement hallway.png";
-        this.doorImage.src = this.level !== "basement"
-          ? "./assets/images/rooms/hallway/hallway door.png"
-          : "./assets/images/rooms/hallway/basement hallway door.png";
+        this.image = this.level !== "basement"
+          ? imageLibrary.hallway
+          : imageLibrary.basementHallway;
+        this.doorImage = this.level !== "basement"
+          ? imageLibrary.hallwayDoor
+          : imageLibrary.basementHallwayDoor;
         break;
       case "dining room":
-        this.image.src = "./assets/images/rooms/dining room.png";
+        this.image = imageLibrary.diningRoom;
         break;
       case "bedroom":
-        this.image.src = "./assets/images/rooms/bedroom.png";
+        this.image = imageLibrary.bedroom;
         break;
       case "parlor":
-        this.image.src = "./assets/images/rooms/parlor.png";
+        this.image = imageLibrary.parlor;
         break;
       case "library":
-        this.image.src = "./assets/images/rooms/library.png";
+        this.image = imageLibrary.library;
         break;
       case "cellar":
-        this.image.src = "./assets/images/rooms/cellar.png";
+        this.image = imageLibrary.cellar;
         break;
       case "catacomb":
-        this.image.src = "./assets/images/rooms/catacombs.png";
+        this.image = imageLibrary.catacombs;
         break;
       case "alcoves":
-        this.image.src = "./assets/images/rooms/alcoves.png";
+        this.image = imageLibrary.alcoves;
         break;
       case "dungeon":
-        this.image.src = "./assets/images/rooms/dungeon.png";
+        this.image = imageLibrary.dungeon;
         break;
       case "entrance":
-        this.image.src = "./assets/images/rooms/entrance.png";
+        this.image = imageLibrary.entrance;
         break;
       case "stairs":
-        this.image.src = `./assets/images/rooms/stair/${this.level} stairs.png`;
-        this.doorImage.src = this.level !== "basement"
-          ? "./assets/images/rooms/stair/stairs door.png"
-          : "./assets/images/rooms/stair/basement stairs door.png";
-        this.color = "purple";
+        switch (this.level) {
+          case "upper":
+            this.image = imageLibrary.upperStairs;
+            break;
+          case "lower":
+            this.image = imageLibrary.lowerStairs;
+            break;
+          case "basement":
+            this.image = imageLibrary.basementStairs;
+            break;
+        }
+        this.doorImage = this.level !== "basement"
+          ? imageLibrary.stairsDoor
+          : imageLibrary.basementStairsDoor;
+        break;
     }
     this.rotation = this.name === "entrance"
       ? 0
@@ -240,6 +252,28 @@ export class Room {
       for (const char of this.characters.values()) {
         char.render();
       }
+    }
+
+    if (this.hasTreasure) {
+      doodler.drawScaled(.5, () => {
+        doodler.drawImage(
+          imageLibrary.treasure,
+          new Vector(this.position.x * 32, this.position.y * 32).add(20, 20)
+            .mult(
+              2,
+            ),
+        );
+      });
+    }
+
+    if (
+      this.position.x === 0 && this.level !== "basement" &&
+      this.name !== "hallway"
+    ) {
+      doodler.drawImage(
+        imageLibrary.window,
+        new Vector(0, this.position.y * 32),
+      );
     }
   }
 }

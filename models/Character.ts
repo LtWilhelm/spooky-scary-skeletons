@@ -29,6 +29,8 @@ export class Character {
   score = 0;
   image: HTMLImageElement;
 
+  safe = false;
+
   constructor(name: string) {
     this.name = name;
     this.uuid = window.crypto.randomUUID();
@@ -43,6 +45,10 @@ export class Character {
       default:
         this.image.src = "./assets/images/explorer.png";
     }
+    this.roomPosition = new Vector(
+      Math.floor(Math.random() * 26),
+      Math.floor(Math.random() * 24),
+    );
   }
 
   get validSpaces(): [(direction | "up" | "down"), Room | undefined][] {
@@ -154,21 +160,7 @@ export class Character {
       ) {
         this.gatheredTreasures.push(this.room.accessor);
       }
-      if (
-        !this.game?.isHost && this.gatheredTreasures.length === 3 &&
-        this.room?.name === "entrance"
-      ) {
-        this.game!.dialog!.innerHTML = `
-          🎃🎃🎃<br>
-          Congratulations! You have collected all of the treasures and escaped to safety!<br>
-          🎃🎃🎃
-        `;
-        this.game?.dialog?.showModal();
-        this.game?.channel?.send(JSON.stringify({
-          action: "win",
-          playerName: this.name,
-        }));
-      }
+
       this.game?.render();
       !this.game?.isHost && this.game?.channel?.send(JSON.stringify({
         action: "move",
@@ -186,13 +178,10 @@ export class Character {
   searchRoom = () => {
   };
 
-  roomPosition = new Vector(
-    Math.floor(Math.random() * 26),
-    Math.floor(Math.random() * 24),
-  );
+  roomPosition: Vector;
 
   render() {
-    if (!this.room) return;
+    if (!this.room || this.safe) return;
     const startPos = new Vector(
       this.room.position.x * 32,
       this.room.position.y * 32,
@@ -211,19 +200,27 @@ export class Character {
         this.image,
         startPos.copy().add(this.roomPosition).mult(scale),
       );
-      if (this.name !== "skeleton" && this.name !== "ghost") {
-        doodler.strokeText(
-          this.name,
-          startPos.copy().add(this.roomPosition).add(0, 12).mult(scale),
-          24,
-          { strokeColor: "white" },
-        );
-        doodler.fillText(
-          this.name,
-          startPos.copy().add(this.roomPosition).add(0, 12).mult(scale),
-          24,
-        );
-      }
     });
+    if (this.name !== "skeleton" && this.name !== "ghost") {
+      doodler.deferDrawing(() => {
+        doodler.drawScaled(10 / scale, () => {
+          const name = this.uuid === this.game?.character?.uuid
+            ? "◈"
+            : this.name;
+          doodler.strokeText(
+            name,
+            startPos.copy().add(this.roomPosition).add(4, 12).mult(scale),
+            40,
+            { strokeColor: "white", textAlign: "center" },
+          );
+          doodler.fillText(
+            name,
+            startPos.copy().add(this.roomPosition).add(4, 12).mult(scale),
+            40,
+            { strokeColor: "purple", textAlign: "center" },
+          );
+        });
+      });
+    }
   }
 }

@@ -306,6 +306,7 @@ class Doodler {
         this.ctx.fillRect(0, 0, this.width, this.height);
         for (const [i, l] of (this.layers || []).entries()){
             l(this.ctx, i);
+            this.drawDeferred();
         }
         this.drawUI();
     }
@@ -411,11 +412,22 @@ class Doodler {
     drawSprite(img, spritePos, sWidth, sHeight, at, width, height) {
         this.ctx.drawImage(img, spritePos.x, spritePos.y, sWidth, sHeight, at.x, at.y, width, height);
     }
+    deferredDrawings = [];
+    deferDrawing(cb) {
+        this.deferredDrawings.push(cb);
+    }
+    drawDeferred() {
+        while(this.deferredDrawings.length){
+            this.deferredDrawings.pop()?.();
+        }
+    }
     setStyle(style) {
         const ctx = this.ctx;
         ctx.fillStyle = style?.color || style?.fillColor || "black";
         ctx.strokeStyle = style?.color || style?.strokeColor || "black";
         ctx.lineWidth = style?.weight || 1;
+        ctx.textAlign = style?.textAlign || ctx.textAlign;
+        ctx.textBaseline = style?.textBaseline || ctx.textBaseline;
     }
     fillText(text, pos, maxWidth, style) {
         this.setStyle(style);
@@ -789,6 +801,83 @@ const init = (opt, zoomable)=>{
     window.doodler = zoomable ? new ZoomableDoodler(opt) : new Doodler(opt);
     window.doodler.init();
 };
+const hallway = new Image();
+hallway.src = "./assets/images/rooms/hallway/hallway.png";
+const basementHallway = new Image();
+basementHallway.src = "./assets/images/rooms/hallway/basement hallway.png";
+const hallwayDoor = new Image();
+hallwayDoor.src = "./assets/images/rooms/hallway/hallway door.png";
+const basementHallwayDoor = new Image();
+basementHallwayDoor.src = "./assets/images/rooms/hallway/basement hallway door.png";
+const diningRoom = new Image();
+diningRoom.src = "./assets/images/rooms/dining room.png";
+const bedroom = new Image();
+bedroom.src = "./assets/images/rooms/bedroom.png";
+const parlor = new Image();
+parlor.src = "./assets/images/rooms/parlor.png";
+const library = new Image();
+library.src = "./assets/images/rooms/library.png";
+const cellar = new Image();
+cellar.src = "./assets/images/rooms/cellar.png";
+const catacombs = new Image();
+catacombs.src = "./assets/images/rooms/catacombs.png";
+const alcoves = new Image();
+alcoves.src = "./assets/images/rooms/alcoves.png";
+const dungeon = new Image();
+dungeon.src = "./assets/images/rooms/dungeon.png";
+const entrance = new Image();
+entrance.src = "./assets/images/rooms/entrance.png";
+const lowerStairs = new Image();
+lowerStairs.src = "./assets/images/rooms/stair/lower stairs.png";
+const upperStairs = new Image();
+upperStairs.src = "./assets/images/rooms/stair/upper stairs.png";
+const stairsDoor = new Image();
+stairsDoor.src = "./assets/images/rooms/stair/stairs door.png";
+const basementStairs = new Image();
+basementStairs.src = "./assets/images/rooms/stair/basement stairs.png";
+const basementStairsDoor = new Image();
+basementStairsDoor.src = "./assets/images/rooms/stair/basement stairs door.png";
+const door = new Image();
+door.src = "./assets/images/rooms/door.png";
+const basementDoor = new Image();
+basementDoor.src = "./assets/images/rooms/basement door.png";
+const window1 = new Image();
+window1.src = "./assets/images/rooms/window.png";
+const treasure = new Image();
+treasure.src = "./assets/images/treasure.png";
+const explorer = new Image();
+explorer.src = "./assets/images/explorer.png";
+const skeleton = new Image();
+skeleton.src = "./assets/images/skeleton.png";
+const ghost = new Image();
+ghost.src = "./assets/images/ghost.png";
+const imageLibrary = {
+    hallway,
+    basementHallway,
+    hallwayDoor,
+    basementHallwayDoor,
+    diningRoom,
+    bedroom,
+    parlor,
+    library,
+    cellar,
+    catacombs,
+    alcoves,
+    dungeon,
+    entrance,
+    lowerStairs,
+    upperStairs,
+    stairsDoor,
+    basementStairs,
+    basementStairsDoor,
+    door,
+    basementDoor,
+    treasure,
+    explorer,
+    skeleton,
+    ghost,
+    window: window1
+};
 class Character {
     name;
     uuid;
@@ -810,6 +899,7 @@ class Character {
     gatheredTreasures = [];
     score = 0;
     image;
+    safe = false;
     constructor(name){
         this.name = name;
         this.uuid = window.crypto.randomUUID();
@@ -824,6 +914,7 @@ class Character {
             default:
                 this.image.src = "./assets/images/explorer.png";
         }
+        this.roomPosition = new Vector(Math.floor(Math.random() * 26), Math.floor(Math.random() * 24));
     }
     get validSpaces() {
         const spaces = this.room.doors.map((d)=>[
@@ -910,18 +1001,6 @@ class Character {
             if (this.room?.hasTreasure && !this.gatheredTreasures.includes(this.room.accessor)) {
                 this.gatheredTreasures.push(this.room.accessor);
             }
-            if (!this.game?.isHost && this.gatheredTreasures.length === 3 && this.room?.name === "entrance") {
-                this.game.dialog.innerHTML = `
-          🎃🎃🎃<br>
-          Congratulations! You have collected all of the treasures and escaped to safety!<br>
-          🎃🎃🎃
-        `;
-                this.game?.dialog?.showModal();
-                this.game?.channel?.send(JSON.stringify({
-                    action: "win",
-                    playerName: this.name
-                }));
-            }
             this.game?.render();
             !this.game?.isHost && this.game?.channel?.send(JSON.stringify({
                 action: "move",
@@ -935,9 +1014,9 @@ class Character {
         }
     };
     searchRoom = ()=>{};
-    roomPosition = new Vector(Math.floor(Math.random() * 26), Math.floor(Math.random() * 24));
+    roomPosition;
     render() {
-        if (!this.room) return;
+        if (!this.room || this.safe) return;
         const startPos = new Vector(this.room.position.x * 32, this.room.position.y * 32);
         let scale = 2;
         switch(this.name){
@@ -947,13 +1026,22 @@ class Character {
         }
         doodler.drawScaled(1 / scale, ()=>{
             doodler.drawImage(this.image, startPos.copy().add(this.roomPosition).mult(scale));
-            if (this.name !== "skeleton" && this.name !== "ghost") {
-                doodler.strokeText(this.name, startPos.copy().add(this.roomPosition).add(0, 12).mult(scale), 24, {
-                    strokeColor: "white"
-                });
-                doodler.fillText(this.name, startPos.copy().add(this.roomPosition).add(0, 12).mult(scale), 24);
-            }
         });
+        if (this.name !== "skeleton" && this.name !== "ghost") {
+            doodler.deferDrawing(()=>{
+                doodler.drawScaled(10 / scale, ()=>{
+                    const name = this.uuid === this.game?.character?.uuid ? "◈" : this.name;
+                    doodler.strokeText(name, startPos.copy().add(this.roomPosition).add(4, 12).mult(scale), 40, {
+                        strokeColor: "white",
+                        textAlign: "center"
+                    });
+                    doodler.fillText(name, startPos.copy().add(this.roomPosition).add(4, 12).mult(scale), 40, {
+                        strokeColor: "purple",
+                        textAlign: "center"
+                    });
+                });
+            });
+        }
     }
 }
 class Channel {
@@ -1231,43 +1319,53 @@ class Room {
         this.image = new Image(32, 32);
         this.doorImage = new Image(32, 32);
         this.game = g;
-        this.doorImage.src = this.level === "basement" ? "./assets/images/rooms/basement door.png" : "./assets/images/rooms/door.png";
+        this.doorImage = this.level === "basement" ? imageLibrary.basementDoor : imageLibrary.door;
         switch(this.name){
             case "hallway":
-                this.image.src = this.level !== "basement" ? "./assets/images/rooms/hallway/hallway.png" : "./assets/images/rooms/hallway/basement hallway.png";
-                this.doorImage.src = this.level !== "basement" ? "./assets/images/rooms/hallway/hallway door.png" : "./assets/images/rooms/hallway/basement hallway door.png";
+                this.image = this.level !== "basement" ? imageLibrary.hallway : imageLibrary.basementHallway;
+                this.doorImage = this.level !== "basement" ? imageLibrary.hallwayDoor : imageLibrary.basementHallwayDoor;
                 break;
             case "dining room":
-                this.image.src = "./assets/images/rooms/dining room.png";
+                this.image = imageLibrary.diningRoom;
                 break;
             case "bedroom":
-                this.image.src = "./assets/images/rooms/bedroom.png";
+                this.image = imageLibrary.bedroom;
                 break;
             case "parlor":
-                this.image.src = "./assets/images/rooms/parlor.png";
+                this.image = imageLibrary.parlor;
                 break;
             case "library":
-                this.image.src = "./assets/images/rooms/library.png";
+                this.image = imageLibrary.library;
                 break;
             case "cellar":
-                this.image.src = "./assets/images/rooms/cellar.png";
+                this.image = imageLibrary.cellar;
                 break;
             case "catacomb":
-                this.image.src = "./assets/images/rooms/catacombs.png";
+                this.image = imageLibrary.catacombs;
                 break;
             case "alcoves":
-                this.image.src = "./assets/images/rooms/alcoves.png";
+                this.image = imageLibrary.alcoves;
                 break;
             case "dungeon":
-                this.image.src = "./assets/images/rooms/dungeon.png";
+                this.image = imageLibrary.dungeon;
                 break;
             case "entrance":
-                this.image.src = "./assets/images/rooms/entrance.png";
+                this.image = imageLibrary.entrance;
                 break;
             case "stairs":
-                this.image.src = `./assets/images/rooms/stair/${this.level} stairs.png`;
-                this.doorImage.src = this.level !== "basement" ? "./assets/images/rooms/stair/stairs door.png" : "./assets/images/rooms/stair/basement stairs door.png";
-                this.color = "purple";
+                switch(this.level){
+                    case "upper":
+                        this.image = imageLibrary.upperStairs;
+                        break;
+                    case "lower":
+                        this.image = imageLibrary.lowerStairs;
+                        break;
+                    case "basement":
+                        this.image = imageLibrary.basementStairs;
+                        break;
+                }
+                this.doorImage = this.level !== "basement" ? imageLibrary.stairsDoor : imageLibrary.basementStairsDoor;
+                break;
         }
         this.rotation = this.name === "entrance" ? 0 : 2 * Math.PI * (Math.floor(Math.random() * 4) / 4);
     }
@@ -1365,6 +1463,14 @@ class Room {
             for (const __char of this.characters.values()){
                 __char.render();
             }
+        }
+        if (this.hasTreasure) {
+            doodler.drawScaled(.5, ()=>{
+                doodler.drawImage(imageLibrary.treasure, new Vector(this.position.x * 32, this.position.y * 32).add(20, 20).mult(2));
+            });
+        }
+        if (this.position.x === 0 && this.level !== "basement" && this.name !== "hallway") {
+            doodler.drawImage(imageLibrary.window, new Vector(0, this.position.y * 32));
         }
     }
 }
@@ -1598,11 +1704,16 @@ class Game {
         for (const character of characters){
             if (character.name !== "skeleton") {
                 for (const skeleton of skeletons){
-                    if (character.room === skeleton.room) {
+                    if (!character.safe && character.room === skeleton.room) {
                         character.room?.element?.classList.remove("current");
                         character.room = this.rooms.find((r)=>r.name === "dungeon");
                         this.channel?.send(JSON.stringify({
                             action: "captured",
+                            playerId: character.uuid
+                        }));
+                    } else {
+                        this.channel?.send(JSON.stringify({
+                            action: "success",
                             playerId: character.uuid
                         }));
                     }
@@ -1774,6 +1885,23 @@ class Game {
                         }
                         break;
                     }
+                case "success":
+                    {
+                        if (this.character?.gatheredTreasures.length === 3 && this.character.room?.name === "entrance") {
+                            this.dialog.innerHTML = `
+          🎃🎃🎃<br>
+          Congratulations! You have collected all of the treasures and escaped to safety!<br>
+          🎃🎃🎃
+        `;
+                            this.dialog?.showModal();
+                            this.channel?.send(JSON.stringify({
+                                action: "win",
+                                playerName: this.character.name
+                            }));
+                            this.character.safe = true;
+                        }
+                        break;
+                    }
                 case "unlock":
                     {
                         this.character.hasMoved = false;
@@ -1803,6 +1931,7 @@ class Game {
                         if (!this.character || !message.charsInRoom) break;
                         for (const __char of message.charsInRoom){
                             const [uuid, name] = __char.split(",");
+                            if (uuid === this.character.uuid) continue;
                             const c = this.characters.get(uuid) || new Character(name);
                             c.uuid = uuid;
                             this.characters.set(c.uuid, c);
