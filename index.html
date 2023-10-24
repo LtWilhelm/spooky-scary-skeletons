@@ -17,7 +17,7 @@
     body {
       background-color: #101025;
       background-image: url('./assets/images/haunted\ house.png');
-      background-position: bottom;
+      background-position: bottom right;
       background-repeat: no-repeat;
       background-size: contain;
       height: 100vh;
@@ -41,7 +41,7 @@
       background-repeat: no-repeat;
       background-position: center;
     }
-    
+
     /* .floor::after {
       content: attr(id);
     } */
@@ -108,7 +108,7 @@
     }
 
     .current {
-      background-image: url(./assets/explorer.png);
+      background-image: url(./assets/images/explorer.png);
       background-size: contain;
       /* background-image: radial-gradient(red 0% 50%, #00000000 50%); */
     }
@@ -116,34 +116,44 @@
     button {
       background-color: purple;
       color: white;
-      border: none;
-      border-radius: 1rem;
+      /* border: none; */
+      /* border-radius: 1rem; */
+      box-sizing: content-box;
       font-size: larger;
       padding: .5rem;
       min-width: 5em;
-    }
-    button:disabled {
-      background-color: grey;
+      cursor: pointer;
     }
 
-    [data-dir=north] { 
+    button:disabled {
+      background-color: grey;
+      cursor: unset;
+    }
+
+    [data-dir=north] {
       grid-area: north;
     }
-    [data-dir=south] { 
+
+    [data-dir=south] {
       grid-area: south;
     }
-    [data-dir=east] { 
+
+    [data-dir=east] {
       grid-area: east;
     }
-    [data-dir=west] { 
+
+    [data-dir=west] {
       grid-area: west;
     }
-    [data-dir=up] { 
+
+    [data-dir=up] {
       grid-area: up;
     }
-    [data-dir=down] { 
+
+    [data-dir=down] {
       grid-area: down;
     }
+
     [data-dir=c] {
       grid-area: c;
     }
@@ -152,7 +162,7 @@
       display: grid;
       /* grid-template-columns: repeat(5, 1fr);
       grid-template-rows: repeat(3, 1fr); */
-      grid-template-areas: 
+      grid-template-areas:
         "a a north b b"
         "up west c east down"
         "d d south e e";
@@ -176,7 +186,11 @@
     .score {
       text-align: right;
     }
-    h3, h1 {margin-top: 0;}
+
+    h3,
+    h1 {
+      margin-top: 0;
+    }
 
     .stairs {
       background-color: purple;
@@ -195,22 +209,27 @@
 
       .buttons {
         width: 100%;
-        grid-template-areas: 
-        "up north b"
-        "west c east"
-        "d south down";
+        grid-template-areas:
+          "up north b"
+          "west c east"
+          "d south down";
 
       }
+
       button {
         min-width: 0;
       }
     }
 
-    .floor-name, .score, h1 {
+    .floor-name,
+    .score,
+    h1 {
       border-radius: 5px;
       background-color: purple;
     }
-    .floor-name:not(:empty), .score:not(:empty){
+
+    .floor-name:not(:empty),
+    .score:not(:empty) {
       padding: 1rem;
     }
 
@@ -230,20 +249,54 @@
         margin: 0 2rem;
       }
     }
+
+    .border,
+    button {
+      border-image-source: url('./assets/images/border.png');
+      border-image-slice: 4;
+      border-image-width: 10px;
+      border-image-outset: 5px;
+      margin: 10px;
+      border-radius: 0;
+    }
+
+    /* Temp */
+    canvas {
+      max-width: 100%;
+      max-height: 800px;
+      margin: auto;
+    }
+
+    * {
+      image-rendering: optimizeSpeed;
+      /* Older versions of FF          */
+      image-rendering: -moz-crisp-edges;
+      /* FF 6.0+                       */
+      image-rendering: -webkit-optimize-contrast;
+      /* Safari                        */
+      image-rendering: -o-crisp-edges;
+      /* OS X & Windows Opera (12.02+) */
+      image-rendering: pixelated;
+      /* Awesome future-browsers       */
+      -ms-interpolation-mode: nearest-neighbor;
+      /* IE  */
+
+    }
   </style>
 </head>
 
 <body>
-  <h1>Spooky Scary Skeletons</h1>
+  <h1 class="border">Spooky Scary Skeletons</h1>
   <div class="flex">
-    <h3 class="floor-name"></h3>
-    <h3 class="score"></h3>
+    <h3 class="floor-name border"></h3>
+    <h3 class="score border"></h3>
   </div>
-  
+
   <container>
-    <div class="floor" data-floor="basement" id="basement"></div>
-    <div class="floor" data-floor="lower" id="lower"></div>
-    <div class="floor" data-floor="upper" id="upper"></div>
+    <!-- <div class="floor" data-floor="basement" id="basement"><canvas id="basement-canvas"></canvas></div>
+    <div class="floor" data-floor="lower" id="lower"><canvas id="lower-canvas"></canvas></div>
+    <div class="floor" data-floor="upper" id="upper"><canvas id="upper-canvas"></canvas></div> -->
+    <div class="border"><canvas></canvas></div>
   </container>
 
   <!-- <dialog>
@@ -254,7 +307,7 @@
   </dialog> -->
   <dialog>
     💀💀💀<br>
-    You've been grabbed by the ghoulies!<br/>
+    You've been grabbed by the ghoulies!<br />
     They've taken you to the dungeon!<br>
     💀💀💀
   </dialog>

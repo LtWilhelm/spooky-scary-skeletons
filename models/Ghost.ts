@@ -21,6 +21,10 @@ export class Ghost extends Character {
 
   seenScore = 0;
 
+  constructor() {
+    super("ghost");
+  }
+
   // Horrible and unoptimized method to check if the target is in LOS by looking in each direction from the current room
   look() {
     let lastRoom = this.room!;

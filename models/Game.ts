@@ -1,10 +1,11 @@
 import { Character } from "./Character.ts";
-import { direction, floors, gridAccessor, rooms } from "./index.ts";
+import { direction, floors, gridAccessor, room, rooms } from "./index.ts";
 import { Room } from "./Room.ts";
 
 import { Sockpuppet } from "https://deno.land/x/sockpuppet@Alpha0.5.7/client/mod.ts";
 import { Channel } from "https://deno.land/x/sockpuppet@Alpha0.5.7/client/Channel.ts";
 import { solver } from "../solver.ts";
+import { Vector } from "doodler";
 
 export class Game {
   rooms: Room[] = [];
@@ -20,22 +21,21 @@ export class Game {
 
   character?: Character;
 
-  dialog = document.querySelector('dialog');
+  dialog = document.querySelector("dialog");
 
-  floor: floors = 'basement';
+  floor: floors = "basement";
 
   tick = () => {
     this.skeletonCheck();
     this.skeletonMove();
     this.render();
-  }
+  };
 
   generate = () => {
     let solvable = false;
-    const skeletonCount = Number(prompt('How many skeletons?') || '3');
+    const skeletonCount = Number(prompt("How many skeletons?") || "3");
     while (!solvable) {
-      console.log("GENERATING NEW MAP");
-      const floors: floors[] = ['basement', 'lower', 'upper'];
+      const floors: floors[] = ["basement", "lower", "upper"];
       this.grid = new Map();
       this.rooms = [];
       this.characters = new Map();
@@ -43,18 +43,18 @@ export class Game {
         const stairX = Math.floor(Math.random() * this.gridSize.x);
         const stairY = Math.floor(Math.random() * this.gridSize.y);
         const stairs = new Room({
-          name: 'stairs',
+          name: "stairs",
           position: { x: stairX, y: stairY },
           level: floor,
         }, this);
 
-        this.grid.set(`${stairX},${stairY},${floor}`, stairs)
+        this.grid.set(`${stairX},${stairY},${floor}`, stairs);
 
-        if (floor === 'basement') {
+        if (floor === "basement") {
           let dungeonX = Math.floor(Math.random() * this.gridSize.x);
           let dungeonY = Math.floor(Math.random() * this.gridSize.y);
           const dungeon = new Room({
-            name: 'dungeon',
+            name: "dungeon",
             position: { x: dungeonX, y: dungeonY },
             level: floor,
           }, this);
@@ -67,11 +67,11 @@ export class Game {
           this.grid.set(`${dungeonX},${dungeonY},${floor}`, dungeon);
         }
 
-        if (floor === 'lower') {
+        if (floor === "lower") {
           let entranceX = Math.floor(Math.random() * this.gridSize.x);
           let entranceY = 5;
           const entrance = new Room({
-            name: 'entrance',
+            name: "entrance",
             position: { x: entranceX, y: entranceY },
             level: floor,
           }, this);
@@ -86,20 +86,21 @@ export class Game {
           this.grid.set(`${entranceX},${entranceY},${floor}`, entrance);
           this.entrance = {
             x: entranceX,
-            y: entranceY
-          }
+            y: entranceY,
+          };
         }
 
         for (let x = 0; x < this.gridSize.x; x++) {
           for (let y = 0; y < this.gridSize.y; y++) {
             if (!this.grid.get(`${x},${y},${floor}`)) {
-              const validRooms = rooms.filter(r => r.floors.includes(floor));
+              const validRooms = rooms.filter((r) => r.floors.includes(floor));
 
-              const selectedRoom = validRooms[Math.floor(Math.random() * validRooms.length)];
+              const selectedRoom =
+                validRooms[Math.floor(Math.random() * validRooms.length)];
               const room = new Room({
                 name: selectedRoom.name,
                 level: floor,
-                position: { x, y }
+                position: { x, y },
               }, this);
 
               this.grid.set(`${x},${y},${floor}`, room);
@@ -116,19 +117,21 @@ export class Game {
           }
         }
 
-        const bannedRooms: rooms[] = ['hallway', 'stairs', "entrance"]
+        const bannedRooms: rooms[] = ["hallway", "stairs", "entrance"];
         let treasureRoom = this.grid.get(this.randomSelector(floor));
-        while (!treasureRoom?.doors.length || bannedRooms.includes(treasureRoom.name)) {
+        while (
+          !treasureRoom?.doors.length || bannedRooms.includes(treasureRoom.name)
+        ) {
           treasureRoom = this.grid.get(this.randomSelector(floor));
         }
         treasureRoom.hasTreasure = true;
       }
 
-
       for (let i = 0; i < skeletonCount; i++) {
-        const skeleton = new Character('skeleton');
-        skeleton.room = this.grid.get(this.randomSelector());
+        const skeleton = new Character("skeleton");
         skeleton.game = this;
+        skeleton.room = this.grid.get(this.randomSelector())!;
+        skeleton.room?.characters.set(skeleton.uuid, skeleton);
         this.characters.set(skeleton.uuid, skeleton);
         // skeleton.room?.characters.push(skeleton);
       }
@@ -136,13 +139,13 @@ export class Game {
       for (const room of this.grid.values()) this.rooms.push(room);
       solvable = solver(this.rooms);
     }
-  }
+  };
 
   init = () => {
     const rooms = Array.from(this.grid.values()).sort((a) => {
-      if (a.level === 'basement') return -1
-      if (a.level === 'lower') return 0
-      if (a.level === 'upper') return 1
+      if (a.level === "basement") return -1;
+      if (a.level === "lower") return 0;
+      if (a.level === "upper") return 1;
       return 0;
     }).sort((a, b) => {
       const posA = a.position;
@@ -154,363 +157,548 @@ export class Game {
       const posB = b.position;
 
       return posA.y - posB.y;
-    })
+    });
 
-    document.querySelectorAll('.floor').forEach(f => f.innerHTML = '');
+    document.querySelectorAll(".floor").forEach((f) => f.innerHTML = "");
+
+    for (const char of this.characters.values()) {
+      console.log(char.name, char.room);
+    }
 
     for (const room of rooms) {
       const floor = document.querySelector(`.floor#${room.level}`);
-      const div = document.createElement('div');
+      const div = document.createElement("div");
       // div.textContent = `${room.name}, ${room.position.x}, ${room.position.y}`;
       div.textContent = room.name;
       div.classList.add(...room.doors);
-      div.classList.add('hidden');
+      div.classList.add("hidden");
       for (const character of this.characters.values()) {
-        if (character.room === room) div.textContent += ' 💀'
+        if (character.room === room) div.textContent += " 💀";
       }
-      if (room.hasTreasure) div.classList.add('treasure');
-      if (room.name === 'stairs') div.classList.add('stairs');
+      if (room.hasTreasure) div.classList.add("treasure");
+      if (room.name === "stairs") div.classList.add("stairs");
       floor?.append(div);
       room.element = div;
     }
 
     this.character?.init();
 
-    this.render();
-  }
+    doodler.createLayer(this.renderDoodle);
+  };
 
+  renderDoodle = () => {
+    const rooms = this.rooms;
+    doodler.drawScaled(10, () => {
+      if (this.isHost) {
+        for (const room of rooms.filter((r) => r.level === this.floor)) {
+          room.render();
+        }
+      } else {
+        for (
+          const room of rooms.filter((r) => (r.level === this.floor) && r.known)
+        ) {
+          room.render();
+        }
+      }
+    });
+
+    // if (!this.isHost) {
+    //   document.querySelectorAll<HTMLDivElement>(".floor[data-floor]").forEach(
+    //     (f) => {
+    //       const floor = f.dataset.floor;
+
+    //       if (floor === this.character?.room?.level) {
+    //         f.classList.remove("hidden");
+    //       } else {
+    //         f.classList.add("hidden");
+    //       }
+    //     },
+    //   );
+
+    //   const nameDict = {
+    //     lower: "Ground Floor",
+    //     upper: "Upstairs",
+    //     basement: "Basement",
+    //   };
+
+    //   document.querySelector(".floor-name")!.textContent =
+    //     nameDict[this.character!.room!.level];
+    //   document.querySelector(".score")!.textContent =
+    //     `You have gathered ${this.character?.gatheredTreasures.length} treasures!`;
+    // }
+
+    // if (this.isHost) {
+    //   const skeletons = Array.from(this.characters.values()).filter((c) =>
+    //     c.name === "skeleton"
+    //   );
+    //   for (const room of this.rooms) {
+    //     room.element!.textContent = room.name;
+    //     for (const character of skeletons) {
+    //       if (character.room === room) {
+    //         room.element!.textContent += " 💀";
+    //       }
+    //     }
+    //     const namesInRoom = [];
+    //     for (const character of this.characters.values()) {
+    //       if (character.name !== "skeleton" && character.room === room) {
+    //         // character.room?.element?.classList.add('current');
+    //         namesInRoom.push(character.name);
+    //       }
+    //     }
+    //     namesInRoom.length && (room.element!.innerHTML = `
+    //     <svg
+    //       width="100%"
+    //       height="100%"
+    //       viewBox="0 0 ${
+    //       Math.max(100, 15 * Math.max(...namesInRoom.map((n) => n.length)))
+    //     } ${15 * namesInRoom.length}"
+    //       preserveAspectRatio="xMinYMid meet"
+    //       xmlns="http://www.w3.org/2000/svg"
+    //       xmlns:xlink="http://www.w3.org/1999/xlink"
+    //     >
+    //       ${
+    //       namesInRoom.map((n, i) => `
+    //         <text
+    //           x=5
+    //           y=${15 * (i + 1)}
+    //           fontSize="15"
+    //         >
+    //           ${n}
+    //         </text>
+    //       `).join("\n")
+    //     }
+    //     </svg
+    //     `);
+    //   }
+
+    //   document.querySelectorAll<HTMLDivElement>(".floor[data-floor]").forEach(
+    //     (f) => {
+    //       const floor = f.dataset.floor;
+
+    //       if (floor === this.floor) {
+    //         f.classList.remove("hidden");
+    //       } else {
+    //         f.classList.add("hidden");
+    //       }
+    //     },
+    //   );
+
+    //   const nameDict = {
+    //     lower: "Ground Floor",
+    //     upper: "Upstairs",
+    //     basement: "Basement",
+    //   };
+
+    //   document.querySelector(".floor-name")!.textContent = nameDict[this.floor];
+    // }
+    // this.character?.buttons();
+  };
   render = () => {
     const rooms = this.rooms;
 
-    for (const room of rooms) {
-      if (!this.isHost && !room.known) room.element?.classList.add('hidden');
-      else room.element?.classList.remove('hidden');
-      if (this.character?.room === room) {
-        room.element?.classList.add('current');
-      }
-    }
+    // for (const [i, room] of rooms.entries()) {
+    //   if (!this.isHost && !room.known) room.element?.classList.add("hidden");
+    //   else room.element?.classList.remove("hidden");
+    //   if (this.character?.room === room) {
+    //     room.element?.classList.add("current");
+    //   }
+    // }
 
     if (!this.isHost) {
-      document.querySelectorAll<HTMLDivElement>('.floor[data-floor]').forEach(f => {
-        const floor = f.dataset.floor;
+      document.querySelectorAll<HTMLDivElement>(".floor[data-floor]").forEach(
+        (f) => {
+          const floor = f.dataset.floor;
 
-        if (floor === this.character?.room?.level) {
-          f.classList.remove('hidden');
-        } else {
-          f.classList.add('hidden');
-        }
-      })
+          if (floor === this.character?.room?.level) {
+            f.classList.remove("hidden");
+          } else {
+            f.classList.add("hidden");
+          }
+        },
+      );
 
       const nameDict = {
-        lower: 'Ground Floor',
-        upper: 'Upstairs',
-        basement: 'Basement'
-      }
+        lower: "Ground Floor",
+        upper: "Upstairs",
+        basement: "Basement",
+      };
 
-      document.querySelector('.floor-name')!.textContent = nameDict[this.character!.room!.level];
-      document.querySelector('.score')!.textContent = `You have gathered ${this.character?.gatheredTreasures.length} treasures!`;
+      document.querySelector(".floor-name")!.textContent =
+        nameDict[this.character!.room!.level];
+      document.querySelector(".score")!.textContent =
+        `You have gathered ${this.character?.gatheredTreasures.length} treasures!`;
     }
 
+    // if (this.isHost) {
+    //   const skeletons = Array.from(this.characters.values()).filter((c) =>
+    //     c.name === "skeleton"
+    //   );
+    //   for (const room of this.rooms) {
+    //     room.element!.textContent = room.name;
+    //     for (const character of skeletons) {
+    //       if (character.room === room) {
+    //         room.element!.textContent += " 💀";
+    //       }
+    //     }
+    //     const namesInRoom = [];
+    //     for (const character of this.characters.values()) {
+    //       if (character.name !== "skeleton" && character.room === room) {
+    //         // character.room?.element?.classList.add('current');
+    //         namesInRoom.push(character.name);
+    //       }
+    //     }
+    //     namesInRoom.length && (room.element!.innerHTML = `
+    //     <svg
+    //       width="100%"
+    //       height="100%"
+    //       viewBox="0 0 ${
+    //       Math.max(100, 15 * Math.max(...namesInRoom.map((n) => n.length)))
+    //     } ${15 * namesInRoom.length}"
+    //       preserveAspectRatio="xMinYMid meet"
+    //       xmlns="http://www.w3.org/2000/svg"
+    //       xmlns:xlink="http://www.w3.org/1999/xlink"
+    //     >
+    //       ${
+    //       namesInRoom.map((n, i) => `
+    //         <text
+    //           x=5
+    //           y=${15 * (i + 1)}
+    //           fontSize="15"
+    //         >
+    //           ${n}
+    //         </text>
+    //       `).join("\n")
+    //     }
+    //     </svg
+    //     `);
+    //   }
 
-    if (this.isHost) {
-      const skeletons = Array.from(this.characters.values()).filter(c => c.name === 'skeleton');
-      for (const room of this.rooms) {
-        room.element!.textContent = room.name;
-        for (const character of skeletons) {
-          if (character.room === room) {
-            room.element!.textContent += ' 💀';
-          }
-        }
-        const namesInRoom = [];
-        for (const character of this.characters.values()) {
-          if (character.name !== 'skeleton' && character.room === room) {
-            // character.room?.element?.classList.add('current');
-            namesInRoom.push(character.name);
-          }
-        }
-        namesInRoom.length && (room.element!.innerHTML = `
-        <svg
-          width="100%"
-          height="100%"
-          viewBox="0 0 ${Math.max(100, 15 * Math.max(...namesInRoom.map(n => n.length)))} ${15 * namesInRoom.length}"
-          preserveAspectRatio="xMinYMid meet"
-          xmlns="http://www.w3.org/2000/svg"
-          xmlns:xlink="http://www.w3.org/1999/xlink"
-        >
-          ${namesInRoom.map((n, i) => `
-            <text
-              x=5
-              y=${15 * (i + 1)}
-              fontSize="15"
-            >
-              ${n}
-            </text>
-          `).join('\n')}
-        </svg
-        `)
-      }
+    //   document.querySelectorAll<HTMLDivElement>(".floor[data-floor]").forEach(
+    //     (f) => {
+    //       const floor = f.dataset.floor;
 
-      document.querySelectorAll<HTMLDivElement>('.floor[data-floor]').forEach(f => {
-        const floor = f.dataset.floor;
+    //       if (floor === this.floor) {
+    //         f.classList.remove("hidden");
+    //       } else {
+    //         f.classList.add("hidden");
+    //       }
+    //     },
+    //   );
 
-        if (floor === this.floor) {
-          f.classList.remove('hidden');
-        } else {
-          f.classList.add('hidden');
-        }
-      })
+    //   const nameDict = {
+    //     lower: "Ground Floor",
+    //     upper: "Upstairs",
+    //     basement: "Basement",
+    //   };
 
-      const nameDict = {
-        lower: 'Ground Floor',
-        upper: 'Upstairs',
-        basement: 'Basement'
-      }
-
-      document.querySelector('.floor-name')!.textContent = nameDict[this.floor];
-    }
+    //   document.querySelector(".floor-name")!.textContent = nameDict[this.floor];
+    // }
     this.character?.buttons();
-  }
+  };
 
-  changeFloor = (dir: 'up' | 'down') => {
+  changeFloor = (dir: "up" | "down") => {
     const options = {
       up: {
-        basement: 'lower',
-        upper: 'upper',
-        lower: 'upper'
+        basement: "lower",
+        upper: "upper",
+        lower: "upper",
       },
       down: {
-        upper: 'lower',
-        lower: 'basement',
-        basement: 'basement'
+        upper: "lower",
+        lower: "basement",
+        basement: "basement",
       },
-    }
+    };
 
     this.floor = options[dir][this.floor] as floors;
     this.render();
-  }
+  };
 
-  randomSelector = (floor?: floors): gridAccessor => `${Math.floor(Math.random() * this.gridSize.x)},${Math.floor(Math.random() * this.gridSize.y)},${floor || floors[Math.floor(Math.random() * floors.length)]}`;
+  randomSelector = (floor?: floors): gridAccessor =>
+    `${Math.floor(Math.random() * this.gridSize.x)},${
+      Math.floor(Math.random() * this.gridSize.y)
+    },${floor || floors[Math.floor(Math.random() * floors.length)]}`;
 
   skeletonCheck = () => {
     const characters = Array.from(this.characters.values());
-    const skeletons = characters.filter(c => c.name === "skeleton");
+    const skeletons = characters.filter((c) => c.name === "skeleton");
 
     for (const character of characters) {
-      if (character.name !== 'skeleton') {
+      if (character.name !== "skeleton") {
         for (const skeleton of skeletons) {
           if (character.room === skeleton.room) {
-            character.room?.element?.classList.remove('current');
-            character.room = this.rooms.find(r => r.name === 'dungeon');
+            character.room?.element?.classList.remove("current");
+            character.room = this.rooms.find((r) => r.name === "dungeon")!;
             this.channel?.send(JSON.stringify({
-              action: 'captured',
-              playerId: character.uuid
-            }))
-            this.render();
+              action: "captured",
+              playerId: character.uuid,
+            }));
           }
         }
       }
     }
-  }
+  };
 
   skeletonMove = () => {
     const characters = Array.from(this.characters.values());
-    const skeletons = characters.filter(c => c.name === "skeleton");
+    const skeletons = characters.filter((c) => c.name === "skeleton");
 
     for (const skeleton of skeletons) {
       skeleton.move();
     }
     this.skeletonCheck();
-  }
+  };
 
   checkPlayerMoves = () => {
-    const characters = Array.from(this.characters.values()).filter(c => c.name !== "skeleton");
-    if (characters.every(c => c.hasMoved)) {
+    const characters = Array.from(this.characters.values()).filter((c) =>
+      c.name !== "skeleton"
+    );
+    if (characters.every((c) => c.hasMoved)) {
       this.tick();
       setTimeout(() => {
-        characters.forEach(c => c.hasMoved = false);
+        characters.forEach((c) => c.hasMoved = false);
         this.channel?.send(JSON.stringify({
-          action: 'unlock'
+          action: "unlock",
         }));
       }, 2000);
     }
-  }
+  };
 
-  puppet = new Sockpuppet('wss://skirmish.ursadesign.io');
+  puppet = new Sockpuppet("wss://skirmish.ursadesign.io");
 
   hostGame = async () => {
     this.isHost = true;
     this.generate();
     this.init();
-    const channelId = 'spooky_scary_skeletons';
+    const channelId = "spooky_scary_skeletons";
     await this.puppet.createChannel(channelId);
 
-    this.puppet.on('ping', (e) => {
-      console.log(e)
+    this.puppet.on("ping", (e) => {
+      console.log(e);
     });
 
     this.puppet.joinChannel(channelId, (msg) => {
       const message = JSON.parse(msg) as socketPacket;
 
       switch (message.action) {
-        case 'join': {
-          const char = new Character(message.playerName)
-          char.room = this.rooms.find(r => r.name === 'entrance');
+        case "join": {
+          console.log("player joined");
+          const char = new Character(message.playerName);
           char.game = this;
+          char.room = this.rooms.find((r) => r.name === "entrance")!;
           char.uuid = message.playerId;
           this.characters.set(message.playerId, char);
-          const map = this.rooms.map(r => ({
+          const map = this.rooms.map((r) => ({
             name: r.name,
             level: r.level,
             position: r.position,
             hasTreasure: r.hasTreasure,
-            doors: r.doors
+            doors: r.doors,
+            uuid: r.uuid,
           }));
-
           this.channel?.send(JSON.stringify({
-            action: 'map',
-            map
+            action: "map",
+            map,
           }));
-          this.render();
+          this.channel?.send(JSON.stringify({
+            action: "room",
+            roomId: char.room.uuid,
+            playerId: char.uuid,
+            charsInRoom: Array.from(char.room.characters.values() || []).map(
+              (c) => `${c.uuid},${c.name}`,
+            ),
+          }));
           break;
         }
-        case 'move': {
-          this.characters.get(message.playerId)?.move(message.direction!);
+        case "move": {
+          const c = this.characters.get(message.playerId);
+          c?.move(message.direction!);
           this.checkPlayerMoves();
+          this.channel?.send(JSON.stringify({
+            action: "room",
+            roomId: c?.room.uuid,
+            playerId: c?.uuid,
+            charsInRoom: Array.from(c?.room.characters.values() || []).map(
+              (c) => `${c.uuid},${c.name}`,
+            ),
+          }));
           break;
         }
-        case 'win': {
-          const buttons = document.querySelector('.buttons');
-          const butt = document.createElement('button');
-          butt.dataset.dir = 'north';
-          butt.textContent = 'Continue';
-          butt.addEventListener('click', () => {
-            this.channel?.send(JSON.stringify({ action: 'continue' }));
+        case "win": {
+          const buttons = document.querySelector(".buttons");
+          const butt = document.createElement("button");
+          butt.dataset.dir = "north";
+          butt.textContent = "Continue";
+          butt.addEventListener("click", () => {
+            this.channel?.send(JSON.stringify({ action: "continue" }));
             butt.remove();
-          })
+          });
           buttons?.append(butt);
           break;
         }
-        case 'score': {
+        case "score": {
           const char = this.characters.get(message.playerId);
           if (!char) break;
           char.score += message.score || 0;
         }
       }
-    })
+    });
 
     this.channel = this.puppet.getChannel(channelId);
-  }
+  };
 
   startGame = () => {
-    this.channel?.send(JSON.stringify({ action: 'unlock' }));
-    const buttons = document.querySelector('.buttons');
+    this.channel?.send(JSON.stringify({ action: "unlock" }));
+    const buttons = document.querySelector(".buttons");
     buttons!.innerHTML = `
     <button class="movement" data-dir="up">Up</button>
     <button class="movement" data-dir="down">Down</button>`;
-    document.querySelectorAll('.movement[data-dir]').forEach(b => {
+    document.querySelectorAll(".movement[data-dir]").forEach((b) => {
       b = b as HTMLButtonElement;
-      b.addEventListener('click', () => this.changeFloor((b as HTMLButtonElement).dataset.dir as 'up' | 'down'))
-    })
+      b.addEventListener(
+        "click",
+        () =>
+          this.changeFloor(
+            (b as HTMLButtonElement).dataset.dir as "up" | "down",
+          ),
+      );
+    });
 
-    const unlockButton = document.createElement('button');
-    unlockButton.dataset.dir = 'c';
-    unlockButton.addEventListener('click', () => {
+    const unlockButton = document.createElement("button");
+    unlockButton.dataset.dir = "c";
+    unlockButton.addEventListener("click", () => {
       for (const [id, char] of this.characters.entries()) {
-        if (char.name !== 'skeleton' && !char.hasMoved) {
+        if (char.name !== "skeleton" && !char.hasMoved) {
           this.characters.delete(id);
         } else {
           char.hasMoved = false;
         }
       }
-      this.channel?.send(JSON.stringify({ action: 'unlock' }));
-    })
-    unlockButton.textContent = 'Unlock';
+      this.channel?.send(JSON.stringify({ action: "unlock" }));
+    });
+    unlockButton.textContent = "Unlock";
 
-    buttons!.append(unlockButton)
+    buttons!.append(unlockButton);
 
     this.render();
-  }
+  };
 
   joinGame = () => {
     this.isHost = false;
-    const channelId = 'spooky_scary_skeletons';
+    const channelId = "spooky_scary_skeletons";
+    this.floor = "lower";
     this.puppet.joinChannel(channelId, (msg) => {
       const message = JSON.parse(msg) as socketPacket;
 
       switch (message.action) {
-        case 'map': {
+        case "map": {
+          console.log("map received");
           if (!this.rooms.length) {
-            this.rooms = message.map!.map(r => {
+            this.rooms = message.map!.map((r) => {
               const room = new Room(r, this);
-              this.grid.set(`${room.position.x},${room.position.y},${room.level}`, room);
+              this.grid.set(
+                `${room.position.x},${room.position.y},${room.level}`,
+                room,
+              );
               return room;
             });
-            this.character!.room = this.rooms.find(r => r.name === 'entrance');
-            this.character!.room!.known = true;
+            this.character!.room = this.rooms.find((r) =>
+              r.name === "entrance"
+            )!;
+            this.character!.room!.characters.set(
+              this.character!.uuid,
+              this.character!,
+            );
+            console.log("initing");
+            this.render();
             this.init();
           }
           break;
         }
-        case 'captured': {
+        case "captured": {
           if (this.character?.uuid === message.playerId) {
-            this.character.room?.element?.classList.remove('current');
-            this.character.room = this.rooms.find(r => r.name === 'dungeon');
-            this.character.room!.known = true;
+            this.character.room = this.rooms.find((r) => r.name === "dungeon")!;
             this.dialog?.showModal();
             setTimeout(() => {
               this.dialog?.close();
-            }, 2000)
-            this.render();
+            }, 2000);
           }
           break;
         }
-        case 'unlock': {
+        case "unlock": {
           this.character!.hasMoved = false;
           this.character?.buttons();
           break;
         }
-        case 'win': {
+        case "win": {
           this.character!.hasMoved = true;
           this.dialog!.innerHTML = `
           🎃🎃🎃<br>
           ${message.playerName} has collected all of the treasures and escaped to safety!<br>
           🎃🎃🎃
-          `
+          `;
           this.dialog?.showModal();
           break;
         }
-        case 'continue': {
+        case "continue": {
           this.character!.hasMoved = false;
           this.character?.buttons();
           this.dialog?.close();
+          break;
+        }
+        case "room": {
+          if (
+            !this.character ||
+            // this.character.room.uuid !== message.roomId ||
+            !message.charsInRoom
+            // message.playerId === this.character.uuid
+          ) break;
+
+          for (const char of message.charsInRoom) {
+            const [uuid, name] = char.split(",");
+            const c = this.characters.get(uuid) || new Character(name);
+            c.uuid = uuid;
+            this.characters.set(c.uuid, c);
+            c.game = this;
+            c.room = this.rooms.find((r) => r.uuid === message.roomId)!;
+          }
         }
       }
     });
 
     this.channel = this.puppet.getChannel(channelId);
-  }
+  };
 
   createCharacter = (name: string) => {
     this.character = new Character(name);
     this.character.game = this;
 
     this.channel?.send(JSON.stringify({
-      action: 'join',
+      action: "join",
       playerId: this.character.uuid,
-      playerName: name
+      playerName: name,
     }));
-  }
+  };
 
   channel?: Channel;
 }
 
 interface socketPacket {
-  action: 'join' | 'move' | 'win' | 'captured' | 'map' | 'unlock' | 'continue' | 'score';
+  action:
+    | "join"
+    | "move"
+    | "win"
+    | "captured"
+    | "map"
+    | "unlock"
+    | "continue"
+    | "room"
+    | "score";
   playerId: string;
   playerName: string;
-  direction?: direction | 'up' | 'down';
+  roomId?: string;
+  charsInRoom?: string[];
+  direction?: direction | "up" | "down";
   map?: Partial<Room>[];
   score?: number;
 }
-
-

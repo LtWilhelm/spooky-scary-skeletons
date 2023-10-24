@@ -3,11 +3,14 @@
     "lib": [
       "dom",
       "es6",
-      "es2016"
+      "es2021"
     ]
   },
   "noExplicitAny": false,
   "tasks": {
     "dev": "deno bundle --watch index.ts bundle.js"
+  },
+  "imports": {
+    "doodler": "https://git.cyborggrizzly.com/emma/doodler/raw/tag/0.0.8c/mod.ts"
   }
 }
