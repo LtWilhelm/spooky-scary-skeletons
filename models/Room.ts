@@ -6,6 +6,7 @@ import { imageLibrary } from "../images.ts";
 import { Item } from "./items/Item.ts";
 import { Mirror, Skull, Spyglass } from "./items/index.ts";
 import { CrystalBall } from "./items/CrystalBall.ts";
+import { SpiderJar } from "./items/SpiderJar.ts";
 
 type itemLoot = {
   item: new (player: Character, game: Game) => Item;
@@ -25,6 +26,8 @@ export class Room {
   level: floors;
   name: rooms;
   uuid: string;
+
+  isTrapped = false;
 
   position: { x: number; y: number };
 
@@ -233,7 +236,7 @@ export class Room {
       case "entrance":
         return [
           {
-            item: CrystalBall,
+            item: SpiderJar,
             type: "item",
             weight: 1,
           },

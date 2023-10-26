@@ -23,7 +23,7 @@ export class Character {
       }
     }
   }
-  game?: Game;
+  game: Game;
 
   hasMoved = true;
 
@@ -53,7 +53,7 @@ export class Character {
 
   item?: Item;
 
-  constructor(name: string) {
+  constructor(name: string, game: Game) {
     this.name = name;
     this.uuid = window.crypto.randomUUID();
     this.image = new Image();
@@ -67,6 +67,7 @@ export class Character {
       default:
         this.image.src = "./assets/images/explorer.png";
     }
+    this.game = game;
     this.roomPosition = new Vector(
       Math.floor(Math.random() * 26),
       Math.floor(Math.random() * 24),
@@ -164,12 +165,32 @@ export class Character {
     });
   };
 
+  // This is going to need a massive overhaul when the ghost AI is added
   move = (dir?: direction | "up" | "down" | "search") => {
     this.roomPosition = new Vector(
       Math.floor(Math.random() * 26),
       Math.floor(Math.random() * 24),
     );
-    if (dir) {
+    if (dir && this.room.isTrapped && dir !== "search" && !this.game.isHost) {
+      this.room === this.room;
+      this.room.isTrapped = false;
+      this.hasMoved = true;
+      const prev = this.game?.dialog?.innerHTML;
+      this.game.dialog!.innerHTML =
+        "AAAARRRGH! A BUNCH OF SPIDERS HAVE YOU TRAPPED!";
+      this.game.dialog?.showModal();
+      setTimeout(() => {
+        this.game.dialog?.close();
+        this.game.dialog!.innerHTML = prev || "";
+      }, 3000);
+      !this.game.isHost && this.game.sendMessage({
+        action: "move",
+        playerId: this.uuid,
+        direction: "search",
+        playerName: this.name,
+      });
+      this.game.render();
+    } else if (dir) {
       this.hasMoved = true;
       this.room?.element?.classList.remove("current");
       if (dir === "up" || dir === "down") {
@@ -211,8 +232,10 @@ export class Character {
       this.game!.floor = this.room?.level || this.game!.floor;
     } else {
       const validSpaces = this.validSpaces;
-      this.room =
-        validSpaces[Math.floor(Math.random() * validSpaces.length)]![1]!;
+      this.room = this.room.isTrapped
+        ? this.room
+        : validSpaces[Math.floor(Math.random() * validSpaces.length)]![1]!;
+      this.room.isTrapped === false;
     }
   };
 

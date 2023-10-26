@@ -54,6 +54,7 @@ export class Item {
       this.player.item?.onDrop();
       this.player.item = this;
       this.player.item.onPickup();
+      this.game.render();
       close();
     });
     takeBtn.textContent = "Take";

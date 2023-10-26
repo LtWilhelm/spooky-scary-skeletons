@@ -21,7 +21,7 @@ export class Game {
 
   character?: Character;
 
-  dialog = document.querySelector("dialog");
+  dialog = document.querySelector("dialog")!;
 
   floor: floors = "basement";
 
@@ -53,38 +53,42 @@ export class Game {
         this.grid.set(`${stairX},${stairY},${floor}`, stairs);
 
         if (floor === "basement") {
-          let dungeonX = Math.floor(Math.random() * this.gridSize.x);
-          let dungeonY = Math.floor(Math.random() * this.gridSize.y);
+          let spaceIsOccupied = false;
+          let dungeonX: number;
+          let dungeonY: number;
+          do {
+            dungeonX = Math.floor(Math.random() * this.gridSize.x);
+            dungeonY = Math.floor(Math.random() * this.gridSize.y);
+            spaceIsOccupied = !!this.grid.get(
+              `${dungeonX},${dungeonY},${floor}`,
+            );
+          } while (spaceIsOccupied);
           const dungeon = new Room({
             name: "dungeon",
             position: { x: dungeonX, y: dungeonY },
             level: floor,
           }, this);
 
-          while (this.grid.get(`${dungeonX},${dungeonY},${floor}`)) {
-            dungeonX = Math.floor(Math.random() * this.gridSize.x);
-            dungeonY = Math.floor(Math.random() * this.gridSize.y);
-          }
-
           this.grid.set(`${dungeonX},${dungeonY},${floor}`, dungeon);
         }
 
         if (floor === "lower") {
-          let entranceX = Math.floor(Math.random() * this.gridSize.x);
-          let entranceY = 5;
+          let entranceX: number;
+          const entranceY = this.gridSize.y - 1;
+          let spaceIsOccupied = false;
+          do {
+            entranceX = Math.floor(Math.random() * this.gridSize.x);
+            spaceIsOccupied = !!this.grid.get(
+              `${entranceX},${entranceY},${floor}`,
+            );
+          } while (spaceIsOccupied);
           const entrance = new Room({
             name: "entrance",
             position: { x: entranceX, y: entranceY },
             level: floor,
           }, this);
           entrance.itemChance = 1;
-
           entrance.known = true;
-
-          while (this.grid.get(`${entranceX},${entranceY},${floor}`)) {
-            entranceX = Math.floor(Math.random() * this.gridSize.x);
-            entranceY = Math.floor(Math.random() * this.gridSize.y);
-          }
 
           this.grid.set(`${entranceX},${entranceY},${floor}`, entrance);
           this.entrance = {
@@ -343,8 +347,8 @@ export class Game {
 
       switch (message.action) {
         case "join": {
-          console.log("player joined");
-          const char = new Character(message.playerName);
+          if (!message.playerName) break;
+          const char = new Character(message.playerName, this);
           char.game = this;
           char.room = this.rooms.find((r) => r.name === "entrance")!;
           char.uuid = message.playerId;
@@ -392,8 +396,13 @@ export class Game {
         case "safe": {
           const char = this.characters.get(message.playerId);
           if (!char) break;
-          console.log(char.name, "toggled safety");
           char.safe = !!message.safe;
+          break;
+        }
+        case "trap": {
+          const room = this.rooms.find((r) => r.uuid === message.roomId);
+          if (!room) break;
+          room.isTrapped = true;
           break;
         }
       }
@@ -404,7 +413,7 @@ export class Game {
 
   startGame = () => {
     for (let i = 0; i < this.skeletonCount; i++) {
-      const skeleton = new Character("skeleton");
+      const skeleton = new Character("skeleton", this);
       skeleton.uuid = "skeleton-" + i;
       skeleton.game = this;
       skeleton.room = this.grid.get(this.randomSelector())!;
@@ -539,16 +548,23 @@ export class Game {
             !message.charsInRoom
             // message.playerId === this.character.uuid
           ) break;
-
+          debugger;
           for (const char of message.charsInRoom) {
             const [uuid, name] = char.split(",");
             if (uuid === this.character.uuid) continue;
-            const c = this.characters.get(uuid) || new Character(name);
+            const c = this.characters.get(uuid) || new Character(name, this);
             c.uuid = uuid;
             this.characters.set(c.uuid, c);
             c.game = this;
             c.room = this.rooms.find((r) => r.uuid === message.roomId)!;
           }
+          break;
+        }
+        case "trap": {
+          const room = this.rooms.find((r) => r.uuid === message.roomId);
+          if (this.character?.uuid === message.playerId || !room) break;
+          room.isTrapped = true;
+          break;
         }
       }
     });
@@ -587,7 +603,7 @@ export class Game {
   }
 
   createCharacter = (name: string) => {
-    this.character = new Character(name);
+    this.character = new Character(name, this);
     this.character.game = this;
 
     this.channel?.send(JSON.stringify({
@@ -598,6 +614,10 @@ export class Game {
   };
 
   channel?: Channel;
+
+  sendMessage(p: socketPacket) {
+    this.channel?.send(JSON.stringify(p));
+  }
 }
 
 interface socketPacket {
@@ -612,12 +632,13 @@ interface socketPacket {
     | "continue"
     | "room"
     | "safe"
+    | "trap"
     | "score";
   playerId: string;
-  playerName: string;
+  playerName?: string;
   roomId?: string;
   charsInRoom?: string[];
-  direction?: direction | "up" | "down";
+  direction?: direction | "up" | "down" | "search";
   map?: Partial<Room>[];
   score?: number;
   safe?: boolean;

@@ -945,6 +945,7 @@ class Item {
             this.player.item?.onDrop();
             this.player.item = this;
             this.player.item.onPickup();
+            this.game.render();
             close();
         });
         takeBtn.textContent = "Take";
@@ -959,23 +960,73 @@ class Item {
     onPickup() {}
     onDrop() {}
 }
-class CrystalBall extends Item {
+class SpiderJar extends Item {
     constructor(player, game){
-        super("Cyrstal Ball", 1, 30, player, game, `
-      The glint of a Crystal Ball catches your eye.<br>
-      The mist within swirls with visions of treasure!<br>
-      Can be used once to find the treasure on the current floor.
+        super("Spider Jar", 1, 15, player, game, `
+      Ew, a jar full of spiders!
+      Might be useful to slow down your opponents...
       `);
-        this.usable;
     }
-    levelTreasure;
     get usable() {
-        this.levelTreasure = this.game.rooms.filter((r)=>r.level === this.game.floor).find((r)=>r._hasTreasure);
-        return !!(this.levelTreasure && !this.player.knownTreasures.includes(this.levelTreasure) && this.uses > 0);
+        return this.uses > 0;
     }
     use() {
-        if (!super.use() || !this.levelTreasure) return false;
-        this.player.knownTreasures.push(this.levelTreasure);
+        if (!this.uses) return false;
+        const buttons = document.createElement("div");
+        buttons.classList.add("buttons");
+        const prev = this.game.dialog?.innerHTML;
+        const close = ()=>{
+            this.game.dialog?.close();
+            this.game.dialog.innerHTML = prev || "";
+        };
+        for (const door of this.player.room.doors){
+            const room = this.player.room.neighbors[door];
+            if (!room) continue;
+            const button = document.createElement("button");
+            button.dataset.dir = door;
+            button.textContent = door;
+            button.addEventListener("click", ()=>{
+                this.game.sendMessage({
+                    action: "trap",
+                    roomId: room.uuid,
+                    playerId: this.player.uuid,
+                    playerName: this.player.name
+                });
+                this.uses--;
+                this.onDrop();
+                this.player.item = undefined;
+                this.player.move("search");
+                close();
+            });
+            buttons.append(button);
+        }
+        const button = document.createElement("button");
+        button.dataset.dir = "c";
+        button.textContent = "Here";
+        button.addEventListener("click", ()=>{
+            this.game.sendMessage({
+                action: "trap",
+                roomId: this.player.room.uuid,
+                playerId: this.player.uuid,
+                playerName: this.player.name
+            });
+            this.uses--;
+            this.onDrop();
+            this.player.item = undefined;
+            this.player.move("search");
+            close();
+        });
+        buttons.append(button);
+        const cancel = document.createElement("button");
+        cancel.dataset.dir = "b";
+        cancel.textContent = "Nevermind...";
+        cancel.addEventListener("click", ()=>{
+            close();
+        });
+        buttons.append(cancel);
+        this.game.dialog.innerHTML = "Which way would you like to throw the jar of spiders?";
+        this.game.dialog.append(buttons);
+        this.game.dialog.showModal();
         return true;
     }
 }
@@ -1021,7 +1072,7 @@ class Character {
     vision = 0;
     sight = 0;
     item;
-    constructor(name){
+    constructor(name, game){
         this.name = name;
         this.uuid = window.crypto.randomUUID();
         this.image = new Image();
@@ -1035,6 +1086,7 @@ class Character {
             default:
                 this.image.src = "./assets/images/explorer.png";
         }
+        this.game = game;
         this.roomPosition = new Vector(Math.floor(Math.random() * 26), Math.floor(Math.random() * 24));
     }
     get validSpaces() {
@@ -1113,7 +1165,25 @@ class Character {
     };
     move = (dir)=>{
         this.roomPosition = new Vector(Math.floor(Math.random() * 26), Math.floor(Math.random() * 24));
-        if (dir) {
+        if (dir && this.room.isTrapped && dir !== "search" && !this.game.isHost) {
+            this.room === this.room;
+            this.room.isTrapped = false;
+            this.hasMoved = true;
+            const prev = this.game?.dialog?.innerHTML;
+            this.game.dialog.innerHTML = "AAAARRRGH! A BUNCH OF SPIDERS HAVE YOU TRAPPED!";
+            this.game.dialog?.showModal();
+            setTimeout(()=>{
+                this.game.dialog?.close();
+                this.game.dialog.innerHTML = prev || "";
+            }, 3000);
+            !this.game.isHost && this.game.sendMessage({
+                action: "move",
+                playerId: this.uuid,
+                direction: "search",
+                playerName: this.name
+            });
+            this.game.render();
+        } else if (dir) {
             this.hasMoved = true;
             this.room?.element?.classList.remove("current");
             if (dir === "up" || dir === "down") {
@@ -1148,7 +1218,8 @@ class Character {
             this.game.floor = this.room?.level || this.game.floor;
         } else {
             const validSpaces = this.validSpaces;
-            this.room = validSpaces[Math.floor(Math.random() * validSpaces.length)][1];
+            this.room = this.room.isTrapped ? this.room : validSpaces[Math.floor(Math.random() * validSpaces.length)][1];
+            this.room.isTrapped === false;
         }
     };
     searchRoom = ()=>{};
@@ -1437,6 +1508,7 @@ class Room {
     level;
     name;
     uuid;
+    isTrapped = false;
     position;
     unique;
     game;
@@ -1581,7 +1653,7 @@ class Room {
             case "entrance":
                 return [
                     {
-                        item: CrystalBall,
+                        item: SpiderJar,
                         type: "item",
                         weight: 1
                     }
@@ -1750,8 +1822,14 @@ class Game {
                 }, this);
                 this.grid.set(`${stairX},${stairY},${floor}`, stairs);
                 if (floor === "basement") {
-                    let dungeonX = Math.floor(Math.random() * this.gridSize.x);
-                    let dungeonY = Math.floor(Math.random() * this.gridSize.y);
+                    let spaceIsOccupied = false;
+                    let dungeonX;
+                    let dungeonY;
+                    do {
+                        dungeonX = Math.floor(Math.random() * this.gridSize.x);
+                        dungeonY = Math.floor(Math.random() * this.gridSize.y);
+                        spaceIsOccupied = !!this.grid.get(`${dungeonX},${dungeonY},${floor}`);
+                    }while (spaceIsOccupied)
                     const dungeon = new Room({
                         name: "dungeon",
                         position: {
@@ -1760,15 +1838,16 @@ class Game {
                         },
                         level: floor
                     }, this);
-                    while(this.grid.get(`${dungeonX},${dungeonY},${floor}`)){
-                        dungeonX = Math.floor(Math.random() * this.gridSize.x);
-                        dungeonY = Math.floor(Math.random() * this.gridSize.y);
-                    }
                     this.grid.set(`${dungeonX},${dungeonY},${floor}`, dungeon);
                 }
                 if (floor === "lower") {
-                    let entranceX = Math.floor(Math.random() * this.gridSize.x);
-                    let entranceY = 5;
+                    let entranceX;
+                    const entranceY = this.gridSize.y - 1;
+                    let spaceIsOccupied = false;
+                    do {
+                        entranceX = Math.floor(Math.random() * this.gridSize.x);
+                        spaceIsOccupied = !!this.grid.get(`${entranceX},${entranceY},${floor}`);
+                    }while (spaceIsOccupied)
                     const entrance = new Room({
                         name: "entrance",
                         position: {
@@ -1779,10 +1858,6 @@ class Game {
                     }, this);
                     entrance.itemChance = 1;
                     entrance.known = true;
-                    while(this.grid.get(`${entranceX},${entranceY},${floor}`)){
-                        entranceX = Math.floor(Math.random() * this.gridSize.x);
-                        entranceY = Math.floor(Math.random() * this.gridSize.y);
-                    }
                     this.grid.set(`${entranceX},${entranceY},${floor}`, entrance);
                     this.entrance = {
                         x: entranceX,
@@ -1986,8 +2061,8 @@ class Game {
             switch(message.action){
                 case "join":
                     {
-                        console.log("player joined");
-                        const __char = new Character(message.playerName);
+                        if (!message.playerName) break;
+                        const __char = new Character(message.playerName, this);
                         __char.game = this;
                         __char.room = this.rooms.find((r)=>r.name === "entrance");
                         __char.uuid = message.playerId;
@@ -2041,8 +2116,14 @@ class Game {
                     {
                         const __char = this.characters.get(message.playerId);
                         if (!__char) break;
-                        console.log(__char.name, "toggled safety");
                         __char.safe = !!message.safe;
+                        break;
+                    }
+                case "trap":
+                    {
+                        const room = this.rooms.find((r)=>r.uuid === message.roomId);
+                        if (!room) break;
+                        room.isTrapped = true;
                         break;
                     }
             }
@@ -2051,7 +2132,7 @@ class Game {
     };
     startGame = ()=>{
         for(let i = 0; i < this.skeletonCount; i++){
-            const skeleton = new Character("skeleton");
+            const skeleton = new Character("skeleton", this);
             skeleton.uuid = "skeleton-" + i;
             skeleton.game = this;
             skeleton.room = this.grid.get(this.randomSelector());
@@ -2171,15 +2252,24 @@ class Game {
                 case "room":
                     {
                         if (!this.character || !message.charsInRoom) break;
+                        debugger;
                         for (const __char of message.charsInRoom){
                             const [uuid, name] = __char.split(",");
                             if (uuid === this.character.uuid) continue;
-                            const c = this.characters.get(uuid) || new Character(name);
+                            const c = this.characters.get(uuid) || new Character(name, this);
                             c.uuid = uuid;
                             this.characters.set(c.uuid, c);
                             c.game = this;
                             c.room = this.rooms.find((r)=>r.uuid === message.roomId);
                         }
+                        break;
+                    }
+                case "trap":
+                    {
+                        const room = this.rooms.find((r)=>r.uuid === message.roomId);
+                        if (this.character?.uuid === message.playerId || !room) break;
+                        room.isTrapped = true;
+                        break;
                     }
             }
         });
@@ -2206,7 +2296,7 @@ class Game {
         }));
     }
     createCharacter = (name)=>{
-        this.character = new Character(name);
+        this.character = new Character(name, this);
         this.character.game = this;
         this.channel?.send(JSON.stringify({
             action: "join",
@@ -2215,6 +2305,9 @@ class Game {
         }));
     };
     channel;
+    sendMessage(p) {
+        this.channel?.send(JSON.stringify(p));
+    }
 }
 const game = new Game();
 const init1 = ()=>{
