@@ -6,6 +6,8 @@ import { Sockpuppet } from "https://deno.land/x/sockpuppet@Alpha0.5.7/client/mod
 import { Channel } from "https://deno.land/x/sockpuppet@Alpha0.5.7/client/Channel.ts";
 import { solver } from "../solver.ts";
 import { initializeDoodler } from "doodler";
+import { Vector } from "https://git.cyborggrizzly.com/emma/doodler/raw/tag/0.0.9d/geometry/vector.ts";
+import { imageLibrary } from "../images.ts";
 
 export class Game {
   rooms: Room[] = [];
@@ -187,6 +189,43 @@ export class Game {
     this.character?.init();
 
     doodler.createLayer(this.renderDoodle);
+    if (!this.isHost) {
+      doodler.createLayer(() => {
+        doodler.drawScaled(10, () => {
+          doodler.fillRect(
+            new Vector(0, this.gridSize.y).mult(32),
+            this.gridSize.x * 32,
+            16,
+            {
+              color: "purple",
+            },
+          );
+
+          this.character?.item?.render();
+
+          const treasureStart = new Vector(2, this.gridSize.y).mult(32).add(
+            2,
+            2,
+          );
+
+          doodler.drawImage(
+            imageLibrary.treasure,
+            treasureStart,
+            12,
+            12,
+          );
+          doodler.fillText(
+            this.character?.gatheredTreasures.length.toString() || "0",
+            treasureStart.copy().add(16, 2),
+            16,
+            {
+              fillColor: "white",
+              textBaseline: "top",
+            },
+          );
+        });
+      });
+    }
   };
 
   renderDoodle = () => {
@@ -206,52 +245,52 @@ export class Game {
     });
   };
   render = () => {
-    if (!this.isHost) {
-      document.querySelectorAll<HTMLDivElement>(".floor[data-floor]").forEach(
-        (f) => {
-          const floor = f.dataset.floor;
+    // if (!this.isHost) {
+    //   document.querySelectorAll<HTMLDivElement>(".floor[data-floor]").forEach(
+    //     (f) => {
+    //       const floor = f.dataset.floor;
 
-          if (floor === this.character?.room?.level) {
-            f.classList.remove("hidden");
-          } else {
-            f.classList.add("hidden");
-          }
-        },
-      );
+    //       if (floor === this.character?.room?.level) {
+    //         f.classList.remove("hidden");
+    //       } else {
+    //         f.classList.add("hidden");
+    //       }
+    //     },
+    //   );
 
-      const nameDict = {
-        lower: "Ground Floor",
-        upper: "Upstairs",
-        basement: "Basement",
-      };
+    //   const nameDict = {
+    //     lower: "Ground Floor",
+    //     upper: "Upstairs",
+    //     basement: "Basement",
+    //   };
 
-      document.querySelector(".floor-name")!.textContent =
-        nameDict[this.character!.room!.level];
-      document.querySelector(".score")!.textContent =
-        `You have gathered ${this.character?.gatheredTreasures.length} treasures!`;
-    }
+    //   document.querySelector(".floor-name")!.textContent =
+    //     nameDict[this.character!.room!.level];
+    //   document.querySelector(".score")!.textContent =
+    //     `You have gathered ${this.character?.gatheredTreasures.length} treasures!`;
+    // }
 
-    if (this.isHost) {
-      document.querySelectorAll<HTMLDivElement>(".floor[data-floor]").forEach(
-        (f) => {
-          const floor = f.dataset.floor;
+    // if (this.isHost) {
+    //   document.querySelectorAll<HTMLDivElement>(".floor[data-floor]").forEach(
+    //     (f) => {
+    //       const floor = f.dataset.floor;
 
-          if (floor === this.floor) {
-            f.classList.remove("hidden");
-          } else {
-            f.classList.add("hidden");
-          }
-        },
-      );
+    //       if (floor === this.floor) {
+    //         f.classList.remove("hidden");
+    //       } else {
+    //         f.classList.add("hidden");
+    //       }
+    //     },
+    //   );
 
-      const nameDict = {
-        lower: "Ground Floor",
-        upper: "Upstairs",
-        basement: "Basement",
-      };
+    //   const nameDict = {
+    //     lower: "Ground Floor",
+    //     upper: "Upstairs",
+    //     basement: "Basement",
+    //   };
 
-      document.querySelector(".floor-name")!.textContent = nameDict[this.floor];
-    }
+    //   document.querySelector(".floor-name")!.textContent = nameDict[this.floor];
+    // }
     this.character?.buttons();
   };
 
@@ -402,7 +441,7 @@ export class Game {
         case "trap": {
           const room = this.rooms.find((r) => r.uuid === message.roomId);
           if (!room) break;
-          room.isTrapped = true;
+          room.trapCount += 1;
           break;
         }
       }
@@ -459,7 +498,7 @@ export class Game {
   };
 
   joinGame = () => {
-    this.initDoodler("black");
+    this.initDoodler("black", 160);
     this.isHost = false;
     const channelId = "spooky_scary_skeletons";
     this.floor = "lower";
@@ -548,7 +587,6 @@ export class Game {
             !message.charsInRoom
             // message.playerId === this.character.uuid
           ) break;
-          debugger;
           for (const char of message.charsInRoom) {
             const [uuid, name] = char.split(",");
             if (uuid === this.character.uuid) continue;
@@ -563,7 +601,7 @@ export class Game {
         case "trap": {
           const room = this.rooms.find((r) => r.uuid === message.roomId);
           if (this.character?.uuid === message.playerId || !room) break;
-          room.isTrapped = true;
+          room.trapCount += 1;
           break;
         }
       }
@@ -572,11 +610,11 @@ export class Game {
     this.channel = this.puppet.getChannel(channelId);
   };
 
-  initDoodler = (bg: string) => {
+  initDoodler = (bg: string, additionalHeight = 0) => {
     if (window.doodler) return;
     initializeDoodler(
       {
-        height: 32 * 60,
+        height: 32 * 60 + additionalHeight,
         width: 32 * 50,
         canvas: document.querySelector("canvas") as HTMLCanvasElement,
         bg,
@@ -605,7 +643,6 @@ export class Game {
   createCharacter = (name: string) => {
     this.character = new Character(name, this);
     this.character.game = this;
-
     this.channel?.send(JSON.stringify({
       action: "join",
       playerId: this.character.uuid,

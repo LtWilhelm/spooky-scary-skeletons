@@ -1,3 +1,4 @@
+import { imageLibrary } from "../../images.ts";
 import { Character, Game } from "../index.ts";
 import { Item } from "./Item.ts";
 
@@ -13,6 +14,7 @@ export class SpiderJar extends Item {
       Ew, a jar full of spiders!
       Might be useful to slow down your opponents...
       `,
+      imageLibrary.spiders,
     );
   }
 

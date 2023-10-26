@@ -7,7 +7,7 @@
 - [ ] Thread: Shows the path back to the exit
 - [x] Crystal Ball: Permanently reveals the treasure location of the level
       you're on, can only be used once
-- [ ] Jar of Spiders: allows you to set a trap to slow down opponents
+- [x] Jar of Spiders: allows you to set a trap to slow down opponents
 - [ ] Ethereal Lantern: When lit, it reveals invisible traps in your current
       room and the adjacent ones.
 - [ ] Spectral Quill (Study): Allows you to draw a temporary door, creating a

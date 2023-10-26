@@ -1,3 +1,4 @@
+import { imageLibrary } from "../../images.ts";
 import { Character, Game } from "../index.ts";
 import { Item } from "./Item.ts";
 
@@ -13,8 +14,9 @@ export class Skull extends Item {
       player,
       game,
       `You found a skull!<br>
-    Protects you from skeletons, but they're not likely to fall for it more than once!<br>
-    Let's you see skeletons in neighboring rooms.`,
+      Protects you from skeletons, but they're not likely to fall for it more than once!<br>
+      Let's you see skeletons in neighboring rooms.`,
+      imageLibrary.skull,
     );
   }
 

@@ -874,6 +874,34 @@ const skeleton = new Image();
 skeleton.src = "./assets/images/skeleton.png";
 const ghost = new Image();
 ghost.src = "./assets/images/ghost.png";
+const trap = new Image();
+trap.src = "./assets/images/trap.png";
+const compass = new Image();
+compass.src = "./assets/images/items/compass.png";
+const dice = new Image();
+dice.src = "./assets/images/items/dice.png";
+const hourglass = new Image();
+hourglass.src = "./assets/images/items/hourglass.png";
+const lantern = new Image();
+lantern.src = "./assets/images/items/lantern.png";
+const mirror = new Image();
+mirror.src = "./assets/images/items/mirror.png";
+const painting = new Image();
+painting.src = "./assets/images/items/painting.png";
+const quill = new Image();
+quill.src = "./assets/images/items/quill.png";
+const skull = new Image();
+skull.src = "./assets/images/items/skull.png";
+const spiders = new Image();
+spiders.src = "./assets/images/items/spiders.png";
+const spyglass = new Image();
+spyglass.src = "./assets/images/items/spyglass.png";
+const thread = new Image();
+thread.src = "./assets/images/items/thread.png";
+const crystalBall = new Image();
+crystalBall.src = "./assets/images/items/crystal ball.png";
+const musicBox = new Image();
+musicBox.src = "./assets/images/items/music box.png";
 const imageLibrary = {
     hallway,
     basementHallway,
@@ -899,7 +927,21 @@ const imageLibrary = {
     explorer,
     skeleton,
     ghost,
-    window: window1
+    window: window1,
+    trap,
+    compass,
+    dice,
+    crystalBall,
+    hourglass,
+    lantern,
+    mirror,
+    musicBox,
+    painting,
+    quill,
+    skull,
+    spiders,
+    spyglass,
+    thread
 };
 class Item {
     name;
@@ -908,16 +950,18 @@ class Item {
     player;
     game;
     pickupDescription;
+    img;
     get usable() {
         return false;
     }
-    constructor(name, uses, points, player, game, pickupDescription){
+    constructor(name, uses, points, player, game, pickupDescription, img){
         this.name = name;
         this.uses = uses;
         this.points = points;
         this.player = player;
         this.game = game;
         this.pickupDescription = pickupDescription;
+        this.img = img;
         this.onFind();
     }
     addEventListener(event, handler) {
@@ -936,6 +980,7 @@ class Item {
     onFind() {
         const prev = this.game.dialog?.innerHTML;
         this.game.dialog.innerHTML = this.pickupDescription.replace(/(<br>)?\r?\n/g, "<br>");
+        this.game.dialog.prepend(this.img);
         const close = ()=>{
             this.game.dialog?.close();
             this.game.dialog.innerHTML = prev || "";
@@ -959,13 +1004,24 @@ class Item {
     }
     onPickup() {}
     onDrop() {}
+    render() {
+        const start = new Vector(0, this.game.gridSize.y).mult(32).add(2, 2);
+        doodler.fillSquare(start, 12, {
+            fillColor: "#00000050"
+        });
+        doodler.drawImage(this.img, start.copy().add(1, 1), 10, 10);
+        doodler.fillText(this.name, start.copy().add(15, 2), 48, {
+            fillColor: "white",
+            textBaseline: "top"
+        });
+    }
 }
 class SpiderJar extends Item {
     constructor(player, game){
         super("Spider Jar", 1, 15, player, game, `
       Ew, a jar full of spiders!
       Might be useful to slow down your opponents...
-      `);
+      `, imageLibrary.spiders);
     }
     get usable() {
         return this.uses > 0;
@@ -1054,6 +1110,7 @@ class Character {
     knownTreasures = [];
     score = 0;
     image;
+    canSeeTraps = false;
     _safe = false;
     get safe() {
         return this._safe;
@@ -1165,9 +1222,9 @@ class Character {
     };
     move = (dir)=>{
         this.roomPosition = new Vector(Math.floor(Math.random() * 26), Math.floor(Math.random() * 24));
-        if (dir && this.room.isTrapped && dir !== "search" && !this.game.isHost) {
+        if (dir && this.room.trapCount && dir !== "search" && !this.game.isHost) {
             this.room === this.room;
-            this.room.isTrapped = false;
+            this.room.trapCount -= 1;
             this.hasMoved = true;
             const prev = this.game?.dialog?.innerHTML;
             this.game.dialog.innerHTML = "AAAARRRGH! A BUNCH OF SPIDERS HAVE YOU TRAPPED!";
@@ -1218,8 +1275,8 @@ class Character {
             this.game.floor = this.room?.level || this.game.floor;
         } else {
             const validSpaces = this.validSpaces;
-            this.room = this.room.isTrapped ? this.room : validSpaces[Math.floor(Math.random() * validSpaces.length)][1];
-            this.room.isTrapped === false;
+            this.room = this.room.trapCount ? this.room : validSpaces[Math.floor(Math.random() * validSpaces.length)][1];
+            this.room.trapCount && (this.room.trapCount -= 1);
         }
     };
     searchRoom = ()=>{};
@@ -1508,7 +1565,7 @@ class Room {
     level;
     name;
     uuid;
-    isTrapped = false;
+    trapCount = 0;
     position;
     unique;
     game;
@@ -1763,6 +1820,12 @@ class Room {
                 }
             }
         }
+        if (this.trapCount && (this.game.isHost || this.game.character?.canSeeTraps)) {
+            const point = new Vector(this.position.x * 32, this.position.y * 32).add(2, 22);
+            doodler.drawScaled(.5, ()=>{
+                doodler.drawImage(imageLibrary.trap, point.mult(2));
+            });
+        }
     }
     calculateDistanceToRoom(room) {
         const thisVec = new Vector(this.position.x, this.position.y);
@@ -1940,6 +2003,22 @@ class Game {
         }
         this.character?.init();
         doodler.createLayer(this.renderDoodle);
+        if (!this.isHost) {
+            doodler.createLayer(()=>{
+                doodler.drawScaled(10, ()=>{
+                    doodler.fillRect(new Vector(0, this.gridSize.y).mult(32), this.gridSize.x * 32, 16, {
+                        color: "purple"
+                    });
+                    this.character?.item?.render();
+                    const treasureStart = new Vector(2, this.gridSize.y).mult(32).add(2, 2);
+                    doodler.drawImage(imageLibrary.treasure, treasureStart, 12, 12);
+                    doodler.fillText(this.character?.gatheredTreasures.length.toString() || "0", treasureStart.copy().add(16, 2), 16, {
+                        fillColor: "white",
+                        textBaseline: "top"
+                    });
+                });
+            });
+        }
     };
     renderDoodle = ()=>{
         const rooms = this.rooms;
@@ -1950,39 +2029,6 @@ class Game {
         });
     };
     render = ()=>{
-        if (!this.isHost) {
-            document.querySelectorAll(".floor[data-floor]").forEach((f)=>{
-                const floor = f.dataset.floor;
-                if (floor === this.character?.room?.level) {
-                    f.classList.remove("hidden");
-                } else {
-                    f.classList.add("hidden");
-                }
-            });
-            const nameDict = {
-                lower: "Ground Floor",
-                upper: "Upstairs",
-                basement: "Basement"
-            };
-            document.querySelector(".floor-name").textContent = nameDict[this.character.room.level];
-            document.querySelector(".score").textContent = `You have gathered ${this.character?.gatheredTreasures.length} treasures!`;
-        }
-        if (this.isHost) {
-            document.querySelectorAll(".floor[data-floor]").forEach((f)=>{
-                const floor = f.dataset.floor;
-                if (floor === this.floor) {
-                    f.classList.remove("hidden");
-                } else {
-                    f.classList.add("hidden");
-                }
-            });
-            const nameDict = {
-                lower: "Ground Floor",
-                upper: "Upstairs",
-                basement: "Basement"
-            };
-            document.querySelector(".floor-name").textContent = nameDict[this.floor];
-        }
         this.character?.buttons();
     };
     changeFloor = (dir)=>{
@@ -2123,7 +2169,7 @@ class Game {
                     {
                         const room = this.rooms.find((r)=>r.uuid === message.roomId);
                         if (!room) break;
-                        room.isTrapped = true;
+                        room.trapCount += 1;
                         break;
                     }
             }
@@ -2172,7 +2218,7 @@ class Game {
         this.render();
     };
     joinGame = ()=>{
-        this.initDoodler("black");
+        this.initDoodler("black", 160);
         this.isHost = false;
         const channelId = "spooky_scary_skeletons";
         this.floor = "lower";
@@ -2252,7 +2298,6 @@ class Game {
                 case "room":
                     {
                         if (!this.character || !message.charsInRoom) break;
-                        debugger;
                         for (const __char of message.charsInRoom){
                             const [uuid, name] = __char.split(",");
                             if (uuid === this.character.uuid) continue;
@@ -2268,17 +2313,17 @@ class Game {
                     {
                         const room = this.rooms.find((r)=>r.uuid === message.roomId);
                         if (this.character?.uuid === message.playerId || !room) break;
-                        room.isTrapped = true;
+                        room.trapCount += 1;
                         break;
                     }
             }
         });
         this.channel = this.puppet.getChannel(channelId);
     };
-    initDoodler = (bg)=>{
+    initDoodler = (bg, additionalHeight = 0)=>{
         if (window.doodler) return;
         init({
-            height: 32 * 60,
+            height: 32 * 60 + additionalHeight,
             width: 32 * 50,
             canvas: document.querySelector("canvas"),
             bg,

@@ -52,6 +52,36 @@ skeleton.src = "./assets/images/skeleton.png";
 const ghost = new Image();
 ghost.src = "./assets/images/ghost.png";
 
+const trap = new Image();
+trap.src = "./assets/images/trap.png";
+
+const compass = new Image();
+compass.src = "./assets/images/items/compass.png";
+const dice = new Image();
+dice.src = "./assets/images/items/dice.png";
+const hourglass = new Image();
+hourglass.src = "./assets/images/items/hourglass.png";
+const lantern = new Image();
+lantern.src = "./assets/images/items/lantern.png";
+const mirror = new Image();
+mirror.src = "./assets/images/items/mirror.png";
+const painting = new Image();
+painting.src = "./assets/images/items/painting.png";
+const quill = new Image();
+quill.src = "./assets/images/items/quill.png";
+const skull = new Image();
+skull.src = "./assets/images/items/skull.png";
+const spiders = new Image();
+spiders.src = "./assets/images/items/spiders.png";
+const spyglass = new Image();
+spyglass.src = "./assets/images/items/spyglass.png";
+const thread = new Image();
+thread.src = "./assets/images/items/thread.png";
+const crystalBall = new Image();
+crystalBall.src = "./assets/images/items/crystal ball.png";
+const musicBox = new Image();
+musicBox.src = "./assets/images/items/music box.png";
+
 export const imageLibrary = {
   hallway,
   basementHallway,
@@ -78,4 +108,18 @@ export const imageLibrary = {
   skeleton,
   ghost,
   window,
+  trap,
+  compass,
+  dice,
+  crystalBall,
+  hourglass,
+  lantern,
+  mirror,
+  musicBox,
+  painting,
+  quill,
+  skull,
+  spiders,
+  spyglass,
+  thread,
 };

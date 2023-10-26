@@ -33,6 +33,8 @@ export class Character {
   score = 0;
   image: HTMLImageElement;
 
+  canSeeTraps = false;
+
   _safe = false;
   get safe() {
     return this._safe;
@@ -171,9 +173,9 @@ export class Character {
       Math.floor(Math.random() * 26),
       Math.floor(Math.random() * 24),
     );
-    if (dir && this.room.isTrapped && dir !== "search" && !this.game.isHost) {
+    if (dir && this.room.trapCount && dir !== "search" && !this.game.isHost) {
       this.room === this.room;
-      this.room.isTrapped = false;
+      this.room.trapCount -= 1;
       this.hasMoved = true;
       const prev = this.game?.dialog?.innerHTML;
       this.game.dialog!.innerHTML =
@@ -232,10 +234,10 @@ export class Character {
       this.game!.floor = this.room?.level || this.game!.floor;
     } else {
       const validSpaces = this.validSpaces;
-      this.room = this.room.isTrapped
+      this.room = this.room.trapCount
         ? this.room
         : validSpaces[Math.floor(Math.random() * validSpaces.length)]![1]!;
-      this.room.isTrapped === false;
+      this.room.trapCount && (this.room.trapCount -= 1);
     }
   };
 

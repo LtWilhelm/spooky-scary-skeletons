@@ -1,3 +1,4 @@
+import { imageLibrary } from "../../images.ts";
 import { Character, Game } from "../index.ts";
 import { Item } from "./Item.ts";
 
@@ -13,6 +14,7 @@ export class Mirror extends Item {
       A Haunted Mirror!<br>
       Peering through it reveals all monsters
       `,
+      imageLibrary.mirror,
     );
 
     this.addEventListener("captured", () => {

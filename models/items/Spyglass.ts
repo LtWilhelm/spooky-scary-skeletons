@@ -1,3 +1,4 @@
+import { imageLibrary } from "../../images.ts";
 import { Character, Game } from "../index.ts";
 import { Item } from "./Item.ts";
 
@@ -13,6 +14,7 @@ export class Spyglass extends Item {
       You found a spyglass!
       This let's you see monsters and players through doors across the map
       `,
+      imageLibrary.spyglass,
     );
   }
 

@@ -27,7 +27,7 @@ export class Room {
   name: rooms;
   uuid: string;
 
-  isTrapped = false;
+  trapCount = 0;
 
   position: { x: number; y: number };
 
@@ -393,6 +393,18 @@ export class Room {
           else room = undefined;
         }
       }
+    }
+
+    if (
+      this.trapCount && (this.game.isHost || this.game.character?.canSeeTraps)
+    ) {
+      const point = new Vector(this.position.x * 32, this.position.y * 32).add(
+        2,
+        22,
+      );
+      doodler.drawScaled(.5, () => {
+        doodler.drawImage(imageLibrary.trap, point.mult(2));
+      });
     }
   }
 

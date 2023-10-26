@@ -1,3 +1,4 @@
+import { imageLibrary } from "../../images.ts";
 import { Character, Game, Room } from "../index.ts";
 import { Item } from "./Item.ts";
 
@@ -14,6 +15,7 @@ export class CrystalBall extends Item {
       The mist within swirls with visions of treasure!<br>
       Can be used once to find the treasure on the current floor.
       `,
+      imageLibrary.crystalBall,
     );
 
     this.usable;
