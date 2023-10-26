@@ -3,11 +3,13 @@ import { Character } from "./Character.ts";
 import { Game } from "./Game.ts";
 import { direction, directions, floors, rooms } from "./index.ts";
 import { imageLibrary } from "../images.ts";
+import { Item } from "./items/Item.ts";
+import { Skull } from "./items/index.ts";
 
 export class Room {
   level: floors;
   name: rooms;
-  uuid?: string;
+  uuid: string;
 
   position: { x: number; y: number };
 
@@ -199,7 +201,12 @@ export class Room {
     return `${this.position.x},${this.position.y},${this.level}`;
   }
 
-  get lootTable(): { name: string; type: "points" | "item"; value?: number }[] {
+  get lootTable(): {
+    item?: new (player: Character, game: Game) => Item;
+    type: "points" | "item";
+    value?: number;
+    name?: string;
+  }[] {
     switch (this.name) {
       case "hallway":
       case "stairs":
@@ -210,6 +217,12 @@ export class Room {
       case "cellar":
       case "dungeon":
       case "entrance":
+        return [
+          {
+            item: Skull,
+            type: "item",
+          },
+        ];
       case "catacomb":
       case "alcoves":
     }
@@ -275,5 +288,29 @@ export class Room {
         new Vector(0, this.position.y * 32),
       );
     }
+
+    if (
+      this.game?.character?.vision &&
+      this.characters.get(this.game.character.uuid)
+    ) {
+      const rooms = this.game.rooms.filter((r) =>
+        r.level === this.level &&
+        this.calculateDistanceToRoom(r) <
+          (this.game?.character?.vision || 0) + 1
+      );
+      for (const room of rooms) {
+        if (room === this) continue;
+        for (const char of room.characters.values()) {
+          if (char.name !== "skeleton") continue;
+          char.render();
+        }
+      }
+    }
+  }
+
+  private calculateDistanceToRoom(room: Room) {
+    const thisVec = new Vector(this.position.x, this.position.y);
+    const roomVec = new Vector(room.position.x, room.position.y);
+    return thisVec.dist(roomVec);
   }
 }

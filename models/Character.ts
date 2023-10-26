@@ -2,6 +2,7 @@ import { Vector } from "doodler";
 import { Game } from "./Game.ts";
 import { direction } from "./index.ts";
 import { Room } from "./Room.ts";
+import { Item } from "./items/Item.ts";
 
 export class Character {
   name: string;
@@ -29,7 +30,23 @@ export class Character {
   score = 0;
   image: HTMLImageElement;
 
-  safe = false;
+  _safe = false;
+  get safe() {
+    return this._safe;
+  }
+  set safe(s: boolean) {
+    this._safe = s;
+    if (!this.game?.isHost) {
+      this.game!.channel?.send(JSON.stringify({
+        playerId: this.uuid,
+        action: "safe",
+        safe: this._safe,
+      }));
+    }
+  }
+  vision = 0;
+
+  item?: Item;
 
   constructor(name: string) {
     this.name = name;
@@ -181,7 +198,7 @@ export class Character {
   roomPosition: Vector;
 
   render() {
-    if (!this.room || this.safe) return;
+    if (!this.room) return;
     const startPos = new Vector(
       this.room.position.x * 32,
       this.room.position.y * 32,
@@ -195,11 +212,13 @@ export class Character {
         break;
     }
 
-    doodler.drawScaled(1 / scale, () => {
-      doodler.drawImage(
-        this.image,
-        startPos.copy().add(this.roomPosition).mult(scale),
-      );
+    doodler.drawWithAlpha(this.safe ? .5 : 1, () => {
+      doodler.drawScaled(1 / scale, () => {
+        doodler.drawImage(
+          this.image,
+          startPos.copy().add(this.roomPosition).mult(scale),
+        );
+      });
     });
     if (this.name !== "skeleton" && this.name !== "ghost") {
       doodler.deferDrawing(() => {

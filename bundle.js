@@ -406,6 +406,12 @@ class Doodler {
         cb();
         this.ctx.restore();
     }
+    drawWithAlpha(alpha, cb) {
+        this.ctx.save();
+        this.ctx.globalAlpha = Math.min(Math.max(alpha, 0), 1);
+        cb();
+        this.ctx.restore();
+    }
     drawImage(img, at, w, h) {
         w && h ? this.ctx.drawImage(img, at.x, at.y, w, h) : this.ctx.drawImage(img, at.x, at.y);
     }
@@ -878,6 +884,82 @@ const imageLibrary = {
     ghost,
     window: window1
 };
+class Item {
+    name;
+    uses;
+    points;
+    player;
+    game;
+    pickupDescription;
+    usable;
+    constructor(name, uses, points, player, game, pickupDescription){
+        this.name = name;
+        this.uses = uses;
+        this.points = points;
+        this.player = player;
+        this.game = game;
+        this.pickupDescription = pickupDescription;
+        this.usable = false;
+        this.onFind();
+    }
+    addEventListener(event, handler) {
+        addEventListener(event, (e)=>{
+            if (this.use()) {
+                handler?.(e);
+            }
+        });
+    }
+    use() {
+        if (!this.uses) return false;
+        this.uses--;
+        return true;
+    }
+    onFind() {
+        this.game.dialog.innerHTML = this.pickupDescription;
+        const close = ()=>{
+            this.game.dialog?.close();
+        };
+        const takeBtn = document.createElement("button");
+        takeBtn.addEventListener("click", ()=>{
+            this.player.item?.onDrop();
+            this.player.item = this;
+            this.player.item.onPickup();
+            close();
+        });
+        takeBtn.textContent = "Take";
+        const leaveBtn = document.createElement("button");
+        leaveBtn.addEventListener("click", ()=>{
+            close();
+        });
+        leaveBtn.textContent = "Leave";
+        this.game.dialog?.append(document.createElement("br"), takeBtn, leaveBtn);
+        this.game.dialog?.showModal();
+    }
+    onPickup() {}
+    onDrop() {}
+}
+class Skull extends Item {
+    constructor(player, game){
+        super("Skull", 1, 10, player, game, `You found a skull!<br>
+    Protects you from skeletons, but they're not likely to fall for it more than once!<br>
+    Let's you see skeletons in neighboring rooms.`);
+    }
+    onPickup() {
+        this.player.item?.onDrop();
+        this.player.item = this;
+        this.player.safe = true;
+        this.player.vision = 1;
+    }
+    onDrop() {
+        this.player.safe = false;
+        this.player.vision = 0;
+    }
+    use() {
+        if (!super.use()) return false;
+        !this.uses && (this.player.safe = false);
+        return true;
+    }
+}
 class Character {
     name;
     uuid;
@@ -899,7 +981,22 @@ class Character {
     gatheredTreasures = [];
     score = 0;
     image;
-    safe = false;
+    _safe = false;
+    get safe() {
+        return this._safe;
+    }
+    set safe(s) {
+        this._safe = s;
+        if (!this.game?.isHost) {
+            this.game.channel?.send(JSON.stringify({
+                playerId: this.uuid,
+                action: "safe",
+                safe: this._safe
+            }));
+        }
+    }
+    vision = 0;
+    item;
     constructor(name){
         this.name = name;
         this.uuid = window.crypto.randomUUID();
@@ -1016,7 +1113,7 @@ class Character {
     searchRoom = ()=>{};
     roomPosition;
     render() {
-        if (!this.room || this.safe) return;
+        if (!this.room) return;
         const startPos = new Vector(this.room.position.x * 32, this.room.position.y * 32);
         let scale = 2;
         switch(this.name){
@@ -1024,8 +1121,10 @@ class Character {
                 scale = 3;
                 break;
         }
-        doodler.drawScaled(1 / scale, ()=>{
-            doodler.drawImage(this.image, startPos.copy().add(this.roomPosition).mult(scale));
+        doodler.drawWithAlpha(this.safe ? .5 : 1, ()=>{
+            doodler.drawScaled(1 / scale, ()=>{
+                doodler.drawImage(this.image, startPos.copy().add(this.roomPosition).mult(scale));
+            });
         });
         if (this.name !== "skeleton" && this.name !== "ghost") {
             doodler.deferDrawing(()=>{
@@ -1431,6 +1530,12 @@ class Room {
             case "cellar":
             case "dungeon":
             case "entrance":
+                return [
+                    {
+                        item: Skull,
+                        type: "item"
+                    }
+                ];
             case "catacomb":
             case "alcoves":
         }
@@ -1472,6 +1577,21 @@ class Room {
         if (this.position.x === 0 && this.level !== "basement" && this.name !== "hallway") {
             doodler.drawImage(imageLibrary.window, new Vector(0, this.position.y * 32));
         }
+        if (this.game?.character?.vision && this.characters.get(this.game.character.uuid)) {
+            const rooms = this.game.rooms.filter((r)=>r.level === this.level && this.calculateDistanceToRoom(r) < (this.game?.character?.vision || 0) + 1);
+            for (const room of rooms){
+                if (room === this) continue;
+                for (const __char of room.characters.values()){
+                    if (__char.name !== "skeleton") continue;
+                    __char.render();
+                }
+            }
+        }
+    }
+    calculateDistanceToRoom(room) {
+        const thisVec = new Vector(this.position.x, this.position.y);
+        const roomVec = new Vector(room.position.x, room.position.y);
+        return thisVec.dist(roomVec);
     }
 }
 const floors = [
@@ -1661,7 +1781,6 @@ class Game {
         });
     };
     render = ()=>{
-        this.rooms;
         if (!this.isHost) {
             document.querySelectorAll(".floor[data-floor]").forEach((f)=>{
                 const floor = f.dataset.floor;
@@ -1678,6 +1797,22 @@ class Game {
             };
             document.querySelector(".floor-name").textContent = nameDict[this.character.room.level];
             document.querySelector(".score").textContent = `You have gathered ${this.character?.gatheredTreasures.length} treasures!`;
+        }
+        if (this.isHost) {
+            document.querySelectorAll(".floor[data-floor]").forEach((f)=>{
+                const floor = f.dataset.floor;
+                if (floor === this.floor) {
+                    f.classList.remove("hidden");
+                } else {
+                    f.classList.add("hidden");
+                }
+            });
+            const nameDict = {
+                lower: "Ground Floor",
+                upper: "Upstairs",
+                basement: "Basement"
+            };
+            document.querySelector(".floor-name").textContent = nameDict[this.floor];
         }
         this.character?.buttons();
     };
@@ -1705,7 +1840,6 @@ class Game {
             if (character.name !== "skeleton") {
                 for (const skeleton of skeletons){
                     if (!character.safe && character.room === skeleton.room) {
-                        character.room?.element?.classList.remove("current");
                         character.room = this.rooms.find((r)=>r.name === "dungeon");
                         this.channel?.send(JSON.stringify({
                             action: "captured",
@@ -1726,6 +1860,7 @@ class Game {
         const skeletons = characters.filter((c)=>c.name === "skeleton");
         for (const skeleton of skeletons){
             skeleton.move();
+            this.sendRoom(skeleton.room.uuid, skeleton.uuid);
         }
         this.skeletonCheck();
     };
@@ -1774,25 +1909,15 @@ class Game {
                             action: "map",
                             map
                         }));
-                        this.channel?.send(JSON.stringify({
-                            action: "room",
-                            roomId: __char.room.uuid,
-                            playerId: __char.uuid,
-                            charsInRoom: Array.from(__char.room.characters.values() || []).map((c)=>`${c.uuid},${c.name}`)
-                        }));
+                        this.sendRoom(__char.room.uuid, __char.uuid);
                         break;
                     }
                 case "move":
                     {
                         const c = this.characters.get(message.playerId);
-                        c?.move(message.direction);
+                        c.move(message.direction);
                         this.checkPlayerMoves();
-                        this.channel?.send(JSON.stringify({
-                            action: "room",
-                            roomId: c?.room.uuid,
-                            playerId: c?.uuid,
-                            charsInRoom: Array.from(c?.room.characters.values() || []).map((c)=>`${c.uuid},${c.name}`)
-                        }));
+                        this.sendRoom(c.room.uuid, c.uuid);
                         break;
                     }
                 case "win":
@@ -1815,6 +1940,15 @@ class Game {
                         const __char = this.characters.get(message.playerId);
                         if (!__char) break;
                         __char.score += message.score || 0;
+                        break;
+                    }
+                case "safe":
+                    {
+                        const __char = this.characters.get(message.playerId);
+                        if (!__char) break;
+                        console.log(__char.name, "toggled safety");
+                        __char.safe = !!message.safe;
+                        break;
                     }
             }
         });
@@ -1859,7 +1993,6 @@ class Game {
             switch(message.action){
                 case "map":
                     {
-                        console.log("map received");
                         if (!this.rooms.length) {
                             this.rooms = message.map.map((r)=>{
                                 const room = new Room(r, this);
@@ -1876,7 +2009,9 @@ class Game {
                     }
                 case "captured":
                     {
-                        if (this.character?.uuid === message.playerId) {
+                        if (this.character?.uuid === message.playerId && !this.character.safe) {
+                            const event = new CustomEvent("captured");
+                            dispatchEvent(event);
                             this.character.room = this.rooms.find((r)=>r.name === "dungeon");
                             this.dialog?.showModal();
                             setTimeout(()=>{
@@ -1943,9 +2078,18 @@ class Game {
         });
         this.channel = this.puppet.getChannel(channelId);
     };
+    sendRoom(roomId, playerId) {
+        this.channel?.send(JSON.stringify({
+            action: "room",
+            roomId,
+            playerId,
+            charsInRoom: Array.from(this.rooms.find((r)=>r.uuid === roomId)?.characters.values() || []).map((c)=>`${c.uuid},${c.name}`)
+        }));
+    }
     createCharacter = (name)=>{
         this.character = new Character(name);
         this.character.game = this;
+        this.character.vision = 1;
         this.channel?.send(JSON.stringify({
             action: "join",
             playerId: this.character.uuid,
@@ -1954,6 +2098,7 @@ class Game {
     };
     channel;
 }
+Skull;
 const game = new Game();
 const init1 = ()=>{
     const buttonContainer = document.querySelector(".buttons");
@@ -1972,8 +2117,9 @@ const init1 = ()=>{
         height: 32 * 60,
         width: 32 * 50,
         canvas: document.querySelector("canvas"),
-        bg: "#ffffff50"
-    }, true);
+        bg: "#ffffff50",
+        framerate: 5
+    }, false);
     document.querySelector("canvas").getContext("2d").imageSmoothingEnabled = false;
 };
 const join = ()=>{

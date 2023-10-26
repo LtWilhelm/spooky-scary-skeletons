@@ -1,5 +1,8 @@
 import { Game } from "./models/index.ts";
 import { initializeDoodler } from "doodler";
+import * as _ from "./models/items/index.ts";
+
+_.Skull;
 
 const game = new Game();
 
@@ -23,7 +26,8 @@ const init = () => {
     width: 32 * 50,
     canvas: document.querySelector("canvas") as HTMLCanvasElement,
     bg: "#ffffff50",
-  }, true);
+    framerate: 5,
+  }, false);
   (document.querySelector("canvas") as HTMLCanvasElement).getContext("2d")!
     .imageSmoothingEnabled = false;
 };

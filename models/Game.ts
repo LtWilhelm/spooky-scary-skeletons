@@ -1,11 +1,10 @@
 import { Character } from "./Character.ts";
-import { direction, floors, gridAccessor, room, rooms } from "./index.ts";
+import { direction, floors, gridAccessor, rooms } from "./index.ts";
 import { Room } from "./Room.ts";
 
 import { Sockpuppet } from "https://deno.land/x/sockpuppet@Alpha0.5.7/client/mod.ts";
 import { Channel } from "https://deno.land/x/sockpuppet@Alpha0.5.7/client/Channel.ts";
 import { solver } from "../solver.ts";
-import { Vector } from "doodler";
 
 export class Game {
   rooms: Room[] = [];
@@ -294,16 +293,6 @@ export class Game {
     // this.character?.buttons();
   };
   render = () => {
-    const rooms = this.rooms;
-
-    // for (const [i, room] of rooms.entries()) {
-    //   if (!this.isHost && !room.known) room.element?.classList.add("hidden");
-    //   else room.element?.classList.remove("hidden");
-    //   if (this.character?.room === room) {
-    //     room.element?.classList.add("current");
-    //   }
-    // }
-
     if (!this.isHost) {
       document.querySelectorAll<HTMLDivElement>(".floor[data-floor]").forEach(
         (f) => {
@@ -329,70 +318,27 @@ export class Game {
         `You have gathered ${this.character?.gatheredTreasures.length} treasures!`;
     }
 
-    // if (this.isHost) {
-    //   const skeletons = Array.from(this.characters.values()).filter((c) =>
-    //     c.name === "skeleton"
-    //   );
-    //   for (const room of this.rooms) {
-    //     room.element!.textContent = room.name;
-    //     for (const character of skeletons) {
-    //       if (character.room === room) {
-    //         room.element!.textContent += " 💀";
-    //       }
-    //     }
-    //     const namesInRoom = [];
-    //     for (const character of this.characters.values()) {
-    //       if (character.name !== "skeleton" && character.room === room) {
-    //         // character.room?.element?.classList.add('current');
-    //         namesInRoom.push(character.name);
-    //       }
-    //     }
-    //     namesInRoom.length && (room.element!.innerHTML = `
-    //     <svg
-    //       width="100%"
-    //       height="100%"
-    //       viewBox="0 0 ${
-    //       Math.max(100, 15 * Math.max(...namesInRoom.map((n) => n.length)))
-    //     } ${15 * namesInRoom.length}"
-    //       preserveAspectRatio="xMinYMid meet"
-    //       xmlns="http://www.w3.org/2000/svg"
-    //       xmlns:xlink="http://www.w3.org/1999/xlink"
-    //     >
-    //       ${
-    //       namesInRoom.map((n, i) => `
-    //         <text
-    //           x=5
-    //           y=${15 * (i + 1)}
-    //           fontSize="15"
-    //         >
-    //           ${n}
-    //         </text>
-    //       `).join("\n")
-    //     }
-    //     </svg
-    //     `);
-    //   }
+    if (this.isHost) {
+      document.querySelectorAll<HTMLDivElement>(".floor[data-floor]").forEach(
+        (f) => {
+          const floor = f.dataset.floor;
 
-    //   document.querySelectorAll<HTMLDivElement>(".floor[data-floor]").forEach(
-    //     (f) => {
-    //       const floor = f.dataset.floor;
+          if (floor === this.floor) {
+            f.classList.remove("hidden");
+          } else {
+            f.classList.add("hidden");
+          }
+        },
+      );
 
-    //       if (floor === this.floor) {
-    //         f.classList.remove("hidden");
-    //       } else {
-    //         f.classList.add("hidden");
-    //       }
-    //     },
-    //   );
+      const nameDict = {
+        lower: "Ground Floor",
+        upper: "Upstairs",
+        basement: "Basement",
+      };
 
-    //   const nameDict = {
-    //     lower: "Ground Floor",
-    //     upper: "Upstairs",
-    //     basement: "Basement",
-    //   };
-
-    //   document.querySelector(".floor-name")!.textContent = nameDict[this.floor];
-    // }
+      document.querySelector(".floor-name")!.textContent = nameDict[this.floor];
+    }
     this.character?.buttons();
   };
 
@@ -427,7 +373,6 @@ export class Game {
       if (character.name !== "skeleton") {
         for (const skeleton of skeletons) {
           if (!character.safe && character.room === skeleton.room) {
-            character.room?.element?.classList.remove("current");
             character.room = this.rooms.find((r) => r.name === "dungeon")!;
             this.channel?.send(JSON.stringify({
               action: "captured",
@@ -450,6 +395,7 @@ export class Game {
 
     for (const skeleton of skeletons) {
       skeleton.move();
+      this.sendRoom(skeleton.room.uuid, skeleton.uuid);
     }
     this.skeletonCheck();
   };
@@ -505,28 +451,14 @@ export class Game {
             action: "map",
             map,
           }));
-          this.channel?.send(JSON.stringify({
-            action: "room",
-            roomId: char.room.uuid,
-            playerId: char.uuid,
-            charsInRoom: Array.from(char.room.characters.values() || []).map(
-              (c) => `${c.uuid},${c.name}`,
-            ),
-          }));
+          this.sendRoom(char.room.uuid, char.uuid);
           break;
         }
         case "move": {
-          const c = this.characters.get(message.playerId);
-          c?.move(message.direction!);
+          const c = this.characters.get(message.playerId)!;
+          c.move(message.direction!);
           this.checkPlayerMoves();
-          this.channel?.send(JSON.stringify({
-            action: "room",
-            roomId: c?.room.uuid,
-            playerId: c?.uuid,
-            charsInRoom: Array.from(c?.room.characters.values() || []).map(
-              (c) => `${c.uuid},${c.name}`,
-            ),
-          }));
+          this.sendRoom(c.room.uuid, c.uuid);
           break;
         }
         case "win": {
@@ -545,6 +477,14 @@ export class Game {
           const char = this.characters.get(message.playerId);
           if (!char) break;
           char.score += message.score || 0;
+          break;
+        }
+        case "safe": {
+          const char = this.characters.get(message.playerId);
+          if (!char) break;
+          console.log(char.name, "toggled safety");
+          char.safe = !!message.safe;
+          break;
         }
       }
     });
@@ -597,7 +537,6 @@ export class Game {
 
       switch (message.action) {
         case "map": {
-          console.log("map received");
           if (!this.rooms.length) {
             this.rooms = message.map!.map((r) => {
               const room = new Room(r, this);
@@ -621,7 +560,11 @@ export class Game {
           break;
         }
         case "captured": {
-          if (this.character?.uuid === message.playerId) {
+          if (
+            this.character?.uuid === message.playerId && !this.character.safe
+          ) {
+            const event = new CustomEvent("captured");
+            dispatchEvent(event);
             this.character.room = this.rooms.find((r) => r.name === "dungeon")!;
             this.dialog?.showModal();
             setTimeout(() => {
@@ -694,9 +637,23 @@ export class Game {
     this.channel = this.puppet.getChannel(channelId);
   };
 
+  sendRoom(roomId: string, playerId: string) {
+    this.channel?.send(JSON.stringify({
+      action: "room",
+      roomId,
+      playerId,
+      charsInRoom: Array.from(
+        this.rooms.find((r) => r.uuid === roomId)?.characters.values() || [],
+      ).map(
+        (c) => `${c.uuid},${c.name}`,
+      ),
+    }));
+  }
+
   createCharacter = (name: string) => {
     this.character = new Character(name);
     this.character.game = this;
+    this.character.vision = 1;
 
     this.channel?.send(JSON.stringify({
       action: "join",
@@ -719,6 +676,7 @@ interface socketPacket {
     | "unlock"
     | "continue"
     | "room"
+    | "safe"
     | "score";
   playerId: string;
   playerName: string;
@@ -727,4 +685,5 @@ interface socketPacket {
   direction?: direction | "up" | "down";
   map?: Partial<Room>[];
   score?: number;
+  safe?: boolean;
 }
