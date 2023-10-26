@@ -4,7 +4,7 @@ import { Game } from "./Game.ts";
 import { direction, directions, floors, rooms } from "./index.ts";
 import { imageLibrary } from "../images.ts";
 import { Item } from "./items/Item.ts";
-import { Skull } from "./items/index.ts";
+import { Skull, Spyglass } from "./items/index.ts";
 
 type itemLoot = {
   item: new (player: Character, game: Game) => Item;
@@ -232,7 +232,7 @@ export class Room {
       case "entrance":
         return [
           {
-            item: Skull,
+            item: Spyglass,
             type: "item",
             weight: 1,
           },
@@ -247,6 +247,7 @@ export class Room {
 
   search() {
     this.hasBeenSearched = true;
+    console.log("searching", this.itemChance);
     if (Math.random() < this.itemChance) {
       const loots = [];
       for (const loot of this.lootTable) {
@@ -268,6 +269,18 @@ export class Room {
   }
 
   rotation: number;
+
+  drawTreasure() {
+    doodler.drawScaled(.5, () => {
+      doodler.drawImage(
+        imageLibrary.treasure,
+        new Vector(this.position.x * 32, this.position.y * 32).add(20, 20)
+          .mult(
+            2,
+          ),
+      );
+    });
+  }
 
   render() {
     const startPos = new Vector(
@@ -306,15 +319,7 @@ export class Room {
     }
 
     if (this.hasTreasure) {
-      doodler.drawScaled(.5, () => {
-        doodler.drawImage(
-          imageLibrary.treasure,
-          new Vector(this.position.x * 32, this.position.y * 32).add(20, 20)
-            .mult(
-              2,
-            ),
-        );
-      });
+      this.drawTreasure();
     }
 
     if (
@@ -363,6 +368,7 @@ export class Room {
           const r = room;
           doodler.deferDrawing(() => {
             doodler.drawScaled(10, () => {
+              if (r.hasTreasure) r.drawTreasure();
               for (const char of r.characters.values()) {
                 char.render();
               }

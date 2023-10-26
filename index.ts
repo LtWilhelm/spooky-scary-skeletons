@@ -1,8 +1,5 @@
 import { Game } from "./models/index.ts";
-import { initializeDoodler } from "doodler";
 import * as _ from "./models/items/index.ts";
-
-_.Skull;
 
 const game = new Game();
 
@@ -19,17 +16,6 @@ const init = () => {
     joinButton.addEventListener("click", join);
     buttonContainer.append(hostButton, joinButton);
   }
-
-  // Temporary until such a time as I can change the rendering completely to doodler
-  initializeDoodler({
-    height: 32 * 60,
-    width: 32 * 50,
-    canvas: document.querySelector("canvas") as HTMLCanvasElement,
-    bg: "#ffffff50",
-    framerate: 5,
-  }, false);
-  (document.querySelector("canvas") as HTMLCanvasElement).getContext("2d")!
-    .imageSmoothingEnabled = false;
 };
 
 const join = () => {

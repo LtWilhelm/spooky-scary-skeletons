@@ -5,6 +5,7 @@ import { Room } from "./Room.ts";
 import { Sockpuppet } from "https://deno.land/x/sockpuppet@Alpha0.5.7/client/mod.ts";
 import { Channel } from "https://deno.land/x/sockpuppet@Alpha0.5.7/client/Channel.ts";
 import { solver } from "../solver.ts";
+import { initializeDoodler } from "doodler";
 
 export class Game {
   rooms: Room[] = [];
@@ -76,6 +77,7 @@ export class Game {
             position: { x: entranceX, y: entranceY },
             level: floor,
           }, this);
+          entrance.itemChance = 1;
 
           entrance.known = true;
 
@@ -416,6 +418,7 @@ export class Game {
   puppet = new Sockpuppet("wss://skirmish.ursadesign.io");
 
   hostGame = async () => {
+    this.initDoodler("red");
     this.isHost = true;
     this.generate();
     this.init();
@@ -538,6 +541,7 @@ export class Game {
   };
 
   joinGame = () => {
+    this.initDoodler("black");
     this.isHost = false;
     const channelId = "spooky_scary_skeletons";
     this.floor = "lower";
@@ -558,10 +562,7 @@ export class Game {
             this.character!.room = this.rooms.find((r) =>
               r.name === "entrance"
             )!;
-            this.character!.room!.characters.set(
-              this.character!.uuid,
-              this.character!,
-            );
+            this.character!.room.itemChance = 1;
             console.log("initing");
             this.render();
             this.init();
@@ -644,6 +645,22 @@ export class Game {
     });
 
     this.channel = this.puppet.getChannel(channelId);
+  };
+
+  initDoodler = (bg: string) => {
+    initializeDoodler(
+      {
+        height: 32 * 60,
+        width: 32 * 50,
+        canvas: document.querySelector("canvas") as HTMLCanvasElement,
+        bg,
+        framerate: 5,
+      },
+      false,
+      (ctx) => {
+        ctx.imageSmoothingEnabled = false;
+      },
+    );
   };
 
   sendRoom(roomId: string, playerId: string) {

@@ -276,7 +276,7 @@ class Doodler {
     draggables = [];
     clickables = [];
     dragTarget;
-    constructor({ width, height, canvas, bg, framerate }){
+    constructor({ width, height, canvas, bg, framerate }, postInit){
         if (!canvas) {
             canvas = document.createElement("canvas");
             document.body.append(canvas);
@@ -289,6 +289,7 @@ class Doodler {
         const ctx = canvas.getContext("2d");
         if (!ctx) throw "Unable to initialize Doodler: Canvas context not found";
         this.ctx = ctx;
+        postInit?.(this.ctx);
     }
     init() {
         this._canvas.addEventListener("mousedown", (e)=>this.onClick(e));
@@ -579,34 +580,34 @@ class ZoomableDoodler extends Doodler {
         y: 0
     };
     maxScale = 4;
-    constructor(options){
-        super(options);
-        this._canvas.addEventListener('wheel', (e)=>{
+    constructor(options, postInit){
+        super(options, postInit);
+        this._canvas.addEventListener("wheel", (e)=>{
             this.scaleAtMouse(e.deltaY < 0 ? 1.1 : .9);
             if (this.scale === 1) {
                 this.origin.x = 0;
                 this.origin.y = 0;
             }
         });
-        this._canvas.addEventListener('dblclick', (e)=>{
+        this._canvas.addEventListener("dblclick", (e)=>{
             e.preventDefault();
             this.scale = 1;
             this.origin.x = 0;
             this.origin.y = 0;
             this.ctx.setTransform(1, 0, 0, 1, 0, 0);
         });
-        this._canvas.addEventListener('mousedown', (e)=>{
+        this._canvas.addEventListener("mousedown", (e)=>{
             e.preventDefault();
             this.dragging = true;
         });
-        this._canvas.addEventListener('mouseup', (e)=>{
+        this._canvas.addEventListener("mouseup", (e)=>{
             e.preventDefault();
             this.dragging = false;
         });
-        this._canvas.addEventListener('mouseleave', (e)=>{
+        this._canvas.addEventListener("mouseleave", (e)=>{
             this.dragging = false;
         });
-        this._canvas.addEventListener('mousemove', (e)=>{
+        this._canvas.addEventListener("mousemove", (e)=>{
             const prev = this.mouse;
             this.mouse = {
                 x: e.offsetX,
@@ -614,7 +615,7 @@ class ZoomableDoodler extends Doodler {
             };
             if (this.dragging && !this.dragTarget) this.drag(prev);
         });
-        this._canvas.addEventListener('touchstart', (e)=>{
+        this._canvas.addEventListener("touchstart", (e)=>{
             e.preventDefault();
             if (e.touches.length === 1) {
                 const t1 = e.touches.item(0);
@@ -628,7 +629,7 @@ class ZoomableDoodler extends Doodler {
                 clearTimeout(this.touchTimer);
             }
         });
-        this._canvas.addEventListener('touchend', (e)=>{
+        this._canvas.addEventListener("touchend", (e)=>{
             if (e.touches.length !== 2) {
                 this.previousTouchLength = undefined;
             }
@@ -637,14 +638,14 @@ class ZoomableDoodler extends Doodler {
                     break;
                 case 0:
                     if (!this.zooming) {
-                        this.events.get('touchend')?.map((cb)=>cb(e));
+                        this.events.get("touchend")?.map((cb)=>cb(e));
                     }
                     break;
             }
             this.dragging = e.touches.length === 1;
             clearTimeout(this.touchTimer);
         });
-        this._canvas.addEventListener('touchmove', (e)=>{
+        this._canvas.addEventListener("touchmove", (e)=>{
             e.preventDefault();
             if (e.touches.length === 2) {
                 const t1 = e.touches.item(0);
@@ -680,7 +681,7 @@ class ZoomableDoodler extends Doodler {
                 }
             }
         });
-        this._canvas.addEventListener('touchstart', (e)=>{
+        this._canvas.addEventListener("touchstart", (e)=>{
             if (e.touches.length !== 1) return false;
             if (!this.hasDoubleTapped) {
                 this.hasDoubleTapped = true;
@@ -695,10 +696,12 @@ class ZoomableDoodler extends Doodler {
                 this.frameCounter = 0;
                 this.zoomDirection = 1;
             }
-            if (this.zoomDirection > 0) this.scaleAround = {
-                ...this.mouse
-            };
-            this.events.get('doubletap')?.map((cb)=>cb(e));
+            if (this.zoomDirection > 0) {
+                this.scaleAround = {
+                    ...this.mouse
+                };
+            }
+            this.events.get("doubletap")?.map((cb)=>cb(e));
         });
     }
     worldToScreen(x, y) {
@@ -800,11 +803,11 @@ class ZoomableDoodler extends Doodler {
         events.push(cb);
     }
 }
-const init = (opt, zoomable)=>{
+const init = (opt, zoomable, postInit)=>{
     if (window.doodler) {
         throw "Doodler has already been initialized in this window";
     }
-    window.doodler = zoomable ? new ZoomableDoodler(opt) : new Doodler(opt);
+    window.doodler = zoomable ? new ZoomableDoodler(opt, postInit) : new Doodler(opt, postInit);
     window.doodler.init();
 };
 const hallway = new Image();
@@ -938,26 +941,18 @@ class Item {
     onPickup() {}
     onDrop() {}
 }
-class Skull extends Item {
+class Spyglass extends Item {
     constructor(player, game){
-        super("Skull", 1, 10, player, game, `You found a skull!<br>
-    Protects you from skeletons, but they're not likely to fall for it more than once!<br>
-    Let's you see skeletons in neighboring rooms.`);
+        super("Spyglass", Infinity, 5, player, game, `
+      You found a spyglass!
+      This let's you see monsters and players through doors across the map
+      `);
     }
     onPickup() {
-        this.player.item?.onDrop();
-        this.player.item = this;
-        this.player.safe = true;
-        this.player.vision = 1;
+        this.player.sight = 6;
     }
     onDrop() {
-        this.player.safe = false;
-        this.player.vision = 0;
-    }
-    use() {
-        if (!super.use()) return false;
-        !this.uses && (this.player.safe = false);
-        return true;
+        this.player.sight = 0;
     }
 }
 class Character {
@@ -1545,7 +1540,7 @@ class Room {
             case "entrance":
                 return [
                     {
-                        item: Skull,
+                        item: Spyglass,
                         type: "item",
                         weight: 1
                     }
@@ -1558,6 +1553,7 @@ class Room {
     hasBeenSearched = false;
     search() {
         this.hasBeenSearched = true;
+        console.log("searching", this.itemChance);
         if (Math.random() < this.itemChance) {
             const loots = [];
             for (const loot of this.lootTable){
@@ -1576,6 +1572,11 @@ class Room {
         }
     }
     rotation;
+    drawTreasure() {
+        doodler.drawScaled(.5, ()=>{
+            doodler.drawImage(imageLibrary.treasure, new Vector(this.position.x * 32, this.position.y * 32).add(20, 20).mult(2));
+        });
+    }
     render() {
         const startPos = new Vector(this.position.x * 32, this.position.y * 32);
         doodler.drawRotated(startPos.copy().add(16, 16), this.rotation, ()=>{
@@ -1604,9 +1605,7 @@ class Room {
             }
         }
         if (this.hasTreasure) {
-            doodler.drawScaled(.5, ()=>{
-                doodler.drawImage(imageLibrary.treasure, new Vector(this.position.x * 32, this.position.y * 32).add(20, 20).mult(2));
-            });
+            this.drawTreasure();
         }
         if (this.position.x === 0 && this.level !== "basement" && this.name !== "hallway") {
             doodler.drawImage(imageLibrary.window, new Vector(0, this.position.y * 32));
@@ -1633,6 +1632,7 @@ class Room {
                     const r = room;
                     doodler.deferDrawing(()=>{
                         doodler.drawScaled(10, ()=>{
+                            if (r.hasTreasure) r.drawTreasure();
                             for (const __char of r.characters.values()){
                                 __char.render();
                             }
@@ -1729,6 +1729,7 @@ class Game {
                         },
                         level: floor
                     }, this);
+                    entrance.itemChance = 1;
                     entrance.known = true;
                     while(this.grid.get(`${entranceX},${entranceY},${floor}`)){
                         entranceX = Math.floor(Math.random() * this.gridSize.x);
@@ -1929,6 +1930,7 @@ class Game {
     };
     puppet = new Sockpuppet("wss://skirmish.ursadesign.io");
     hostGame = async ()=>{
+        this.initDoodler("red");
         this.isHost = true;
         this.generate();
         this.init();
@@ -2047,6 +2049,7 @@ class Game {
         this.render();
     };
     joinGame = ()=>{
+        this.initDoodler("black");
         this.isHost = false;
         const channelId = "spooky_scary_skeletons";
         this.floor = "lower";
@@ -2062,7 +2065,7 @@ class Game {
                                 return room;
                             });
                             this.character.room = this.rooms.find((r)=>r.name === "entrance");
-                            this.character.room.characters.set(this.character.uuid, this.character);
+                            this.character.room.itemChance = 1;
                             console.log("initing");
                             this.render();
                             this.init();
@@ -2140,6 +2143,17 @@ class Game {
         });
         this.channel = this.puppet.getChannel(channelId);
     };
+    initDoodler = (bg)=>{
+        init({
+            height: 32 * 60,
+            width: 32 * 50,
+            canvas: document.querySelector("canvas"),
+            bg,
+            framerate: 5
+        }, false, (ctx)=>{
+            ctx.imageSmoothingEnabled = false;
+        });
+    };
     sendRoom(roomId, playerId) {
         this.channel?.send(JSON.stringify({
             action: "room",
@@ -2159,7 +2173,6 @@ class Game {
     };
     channel;
 }
-Skull;
 const game = new Game();
 const init1 = ()=>{
     const buttonContainer = document.querySelector(".buttons");
@@ -2174,14 +2187,6 @@ const init1 = ()=>{
         joinButton.addEventListener("click", join);
         buttonContainer.append(hostButton, joinButton);
     }
-    init({
-        height: 32 * 60,
-        width: 32 * 50,
-        canvas: document.querySelector("canvas"),
-        bg: "#ffffff50",
-        framerate: 5
-    }, false);
-    document.querySelector("canvas").getContext("2d").imageSmoothingEnabled = false;
 };
 const join = ()=>{
     game.joinGame();
