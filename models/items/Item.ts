@@ -3,7 +3,9 @@ import { Character, Game } from "../index.ts";
 type gameEvents = "captured" | "nearby";
 
 export class Item {
-  usable = false;
+  get usable() {
+    return false;
+  }
 
   constructor(
     public name: string,
@@ -33,13 +35,19 @@ export class Item {
   use(): boolean {
     if (!this.uses) return false;
     this.uses--;
+    this.player.move("search");
     return true;
   }
 
   private onFind() {
-    this.game.dialog!.innerHTML = this.pickupDescription;
+    const prev = this.game.dialog?.innerHTML;
+    this.game.dialog!.innerHTML = this.pickupDescription.replace(
+      /(<br>)?\r?\n/g,
+      "<br>",
+    );
     const close = () => {
       this.game.dialog?.close();
+      this.game.dialog!.innerHTML = prev || "";
     };
     const takeBtn = document.createElement("button");
     takeBtn.addEventListener("click", () => {

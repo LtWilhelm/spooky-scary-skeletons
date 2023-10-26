@@ -5,7 +5,7 @@
 - [x] Mirror (bedroom): Shows the location of all monsters on your level, breaks
       if you get captured
 - [ ] Thread: Shows the path back to the exit
-- [ ] Crystal Ball: Permanently reveals the treasure location of the level
+- [x] Crystal Ball: Permanently reveals the treasure location of the level
       you're on, can only be used once
 - [ ] Jar of Spiders: allows you to set a trap to slow down opponents
 - [ ] Ethereal Lantern: When lit, it reveals invisible traps in your current

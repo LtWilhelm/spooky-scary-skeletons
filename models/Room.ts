@@ -5,6 +5,7 @@ import { direction, directions, floors, rooms } from "./index.ts";
 import { imageLibrary } from "../images.ts";
 import { Item } from "./items/Item.ts";
 import { Mirror, Skull, Spyglass } from "./items/index.ts";
+import { CrystalBall } from "./items/CrystalBall.ts";
 
 type itemLoot = {
   item: new (player: Character, game: Game) => Item;
@@ -232,7 +233,7 @@ export class Room {
       case "entrance":
         return [
           {
-            item: Mirror,
+            item: CrystalBall,
             type: "item",
             weight: 1,
           },
@@ -290,25 +291,27 @@ export class Room {
       this.position.y * 32,
     );
 
-    doodler.drawRotated(startPos.copy().add(16, 16), this.rotation, () => {
-      doodler.drawImage(this.image, startPos);
-    });
-    for (const door of this.doors) {
-      let angle = 0;
-      switch (door) {
-        case "south":
-          angle = Math.PI;
-          break;
-        case "east":
-          angle = Math.PI / 2;
-          break;
-        case "west":
-          angle = (2 * Math.PI) * (3 / 4);
-          break;
-      }
-      doodler.drawRotated(startPos.copy().add(16, 16), angle, () => {
-        doodler.drawImage(this.doorImage, startPos);
+    if (this.known || this.game.isHost) {
+      doodler.drawRotated(startPos.copy().add(16, 16), this.rotation, () => {
+        doodler.drawImage(this.image, startPos);
       });
+      for (const door of this.doors) {
+        let angle = 0;
+        switch (door) {
+          case "south":
+            angle = Math.PI;
+            break;
+          case "east":
+            angle = Math.PI / 2;
+            break;
+          case "west":
+            angle = (2 * Math.PI) * (3 / 4);
+            break;
+        }
+        doodler.drawRotated(startPos.copy().add(16, 16), angle, () => {
+          doodler.drawImage(this.doorImage, startPos);
+        });
+      }
     }
 
     if (
@@ -320,7 +323,11 @@ export class Room {
       }
     }
 
-    if (this.hasTreasure) {
+    if (
+      this.hasTreasure &&
+      (this.game.isHost || this.known ||
+        this.game.character?.knownTreasures.includes(this))
+    ) {
       this.drawTreasure();
     }
 

@@ -908,7 +908,9 @@ class Item {
     player;
     game;
     pickupDescription;
-    usable;
+    get usable() {
+        return false;
+    }
     constructor(name, uses, points, player, game, pickupDescription){
         this.name = name;
         this.uses = uses;
@@ -916,7 +918,6 @@ class Item {
         this.player = player;
         this.game = game;
         this.pickupDescription = pickupDescription;
-        this.usable = false;
         this.onFind();
     }
     addEventListener(event, handler) {
@@ -929,12 +930,15 @@ class Item {
     use() {
         if (!this.uses) return false;
         this.uses--;
+        this.player.move("search");
         return true;
     }
     onFind() {
-        this.game.dialog.innerHTML = this.pickupDescription;
+        const prev = this.game.dialog?.innerHTML;
+        this.game.dialog.innerHTML = this.pickupDescription.replace(/(<br>)?\r?\n/g, "<br>");
         const close = ()=>{
             this.game.dialog?.close();
+            this.game.dialog.innerHTML = prev || "";
         };
         const takeBtn = document.createElement("button");
         takeBtn.addEventListener("click", ()=>{
@@ -955,24 +959,24 @@ class Item {
     onPickup() {}
     onDrop() {}
 }
-class Mirror extends Item {
+class CrystalBall extends Item {
     constructor(player, game){
-        super("Mirror", 1, 30, player, game, `
-      A Haunted Mirror!<br>
-      Peering through it reveals all monsters
+        super("Cyrstal Ball", 1, 30, player, game, `
+      The glint of a Crystal Ball catches your eye.<br>
+      The mist within swirls with visions of treasure!<br>
+      Can be used once to find the treasure on the current floor.
       `);
-        this.addEventListener("captured", ()=>{
-            this.onDrop();
-            this.player.item = undefined;
-        });
+        this.usable;
     }
-    onPickup() {
-        this.player.vision = 10;
-        this.player.visionIncludesAllMonsters = true;
+    levelTreasure;
+    get usable() {
+        this.levelTreasure = this.game.rooms.filter((r)=>r.level === this.game.floor).find((r)=>r._hasTreasure);
+        return !!(this.levelTreasure && !this.player.knownTreasures.includes(this.levelTreasure) && this.uses > 0);
     }
-    onDrop() {
-        this.player.vision = 0;
-        this.player.visionIncludesAllMonsters = false;
+    use() {
+        if (!super.use() || !this.levelTreasure) return false;
+        this.player.knownTreasures.push(this.levelTreasure);
+        return true;
     }
 }
 class Character {
@@ -996,6 +1000,7 @@ class Character {
     game;
     hasMoved = true;
     gatheredTreasures = [];
+    knownTreasures = [];
     score = 0;
     image;
     _safe = false;
@@ -1068,11 +1073,15 @@ class Character {
         const buttons = document.querySelectorAll("button.movement");
         buttons.forEach((b)=>b.addEventListener("click", (e)=>{
                 const dir = e.target.dataset.dir;
-                if (dir !== "c") {
-                    this.move(dir);
-                } else {
-                    this.room.search();
-                    this.hasMoved = true;
+                switch(dir){
+                    case "c":
+                        this.room.search();
+                        break;
+                    case "b":
+                        this.item?.use();
+                        break;
+                    default:
+                        this.move(dir);
                 }
             }));
     };
@@ -1094,6 +1103,9 @@ class Character {
                 b.disabled = false;
             }
             if (dir === "c" && !this.room.hasBeenSearched) {
+                b.disabled = false;
+            }
+            if (dir === "b" && this.item?.usable) {
                 b.disabled = false;
             }
             if (this.hasMoved) b.disabled = true;
@@ -1151,20 +1163,19 @@ class Character {
                 break;
         }
         if (this.name !== "skeleton" && this.name !== "ghost") {
-            doodler.drawWithAlpha(this.safe ? .5 : 1, ()=>{
+            doodler.drawWithAlpha(this.safe ? .25 : 1, ()=>{
                 doodler.drawScaled(1 / scale, ()=>{
-                    doodler.drawImage(this.image, startPos.copy().add(this.roomPosition).mult(scale));
+                    this.game?.character === this ? doodler.drawImageWithOutline(this.image, startPos.copy().add(this.roomPosition).mult(scale), {
+                        color: "lime",
+                        weight: 6
+                    }) : doodler.drawImage(this.image, startPos.copy().add(this.roomPosition).mult(scale));
                 });
             });
             doodler.deferDrawing(()=>{
                 doodler.drawScaled(10 / scale, ()=>{
-                    const name = this.uuid === this.game?.character?.uuid ? "◈" : this.name;
-                    doodler.strokeText(name, startPos.copy().add(this.roomPosition).add(4, 12).mult(scale), 40, {
-                        strokeColor: "white",
-                        textAlign: "center"
-                    });
+                    const name = this.uuid === this.game?.character?.uuid ? "" : this.name;
                     doodler.fillText(name, startPos.copy().add(this.roomPosition).add(4, 12).mult(scale), 40, {
-                        strokeColor: "purple",
+                        color: "lime",
                         textAlign: "center"
                     });
                 });
@@ -1570,7 +1581,7 @@ class Room {
             case "entrance":
                 return [
                     {
-                        item: Mirror,
+                        item: CrystalBall,
                         type: "item",
                         weight: 1
                     }
@@ -1610,32 +1621,34 @@ class Room {
     }
     render() {
         const startPos = new Vector(this.position.x * 32, this.position.y * 32);
-        doodler.drawRotated(startPos.copy().add(16, 16), this.rotation, ()=>{
-            doodler.drawImage(this.image, startPos);
-        });
-        for (const door of this.doors){
-            let angle = 0;
-            switch(door){
-                case "south":
-                    angle = Math.PI;
-                    break;
-                case "east":
-                    angle = Math.PI / 2;
-                    break;
-                case "west":
-                    angle = 2 * Math.PI * (3 / 4);
-                    break;
-            }
-            doodler.drawRotated(startPos.copy().add(16, 16), angle, ()=>{
-                doodler.drawImage(this.doorImage, startPos);
+        if (this.known || this.game.isHost) {
+            doodler.drawRotated(startPos.copy().add(16, 16), this.rotation, ()=>{
+                doodler.drawImage(this.image, startPos);
             });
+            for (const door of this.doors){
+                let angle = 0;
+                switch(door){
+                    case "south":
+                        angle = Math.PI;
+                        break;
+                    case "east":
+                        angle = Math.PI / 2;
+                        break;
+                    case "west":
+                        angle = 2 * Math.PI * (3 / 4);
+                        break;
+                }
+                doodler.drawRotated(startPos.copy().add(16, 16), angle, ()=>{
+                    doodler.drawImage(this.doorImage, startPos);
+                });
+            }
         }
         if (this.game?.isHost || this.game?.character && this.characters.get(this.game.character.uuid)) {
             for (const __char of this.characters.values()){
                 __char.render();
             }
         }
-        if (this.hasTreasure) {
+        if (this.hasTreasure && (this.game.isHost || this.known || this.game.character?.knownTreasures.includes(this))) {
             this.drawTreasure();
         }
         if (this.position.x === 0 && this.level !== "basement" && this.name !== "hallway") {
@@ -1856,14 +1869,8 @@ class Game {
     renderDoodle = ()=>{
         const rooms = this.rooms;
         doodler.drawScaled(10, ()=>{
-            if (this.isHost) {
-                for (const room of rooms.filter((r)=>r.level === this.floor)){
-                    room.render();
-                }
-            } else {
-                for (const room of rooms.filter((r)=>r.level === this.floor && r.known)){
-                    room.render();
-                }
+            for (const room of rooms.filter((r)=>r.level === this.floor)){
+                room.render();
             }
         });
     };
@@ -2179,6 +2186,7 @@ class Game {
         this.channel = this.puppet.getChannel(channelId);
     };
     initDoodler = (bg)=>{
+        if (window.doodler) return;
         init({
             height: 32 * 60,
             width: 32 * 50,
@@ -2235,6 +2243,7 @@ const join = ()=>{
   <button class="movement" data-dir="up">Up</button>
   <button class="movement" data-dir="down">Down</button>
   <button class="movement" data-dir="c">Search</button>
+  <button class="movement" data-dir="b">Use Item</button>
   `;
 };
 const host = ()=>{

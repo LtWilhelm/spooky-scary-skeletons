@@ -188,17 +188,17 @@ export class Game {
   renderDoodle = () => {
     const rooms = this.rooms;
     doodler.drawScaled(10, () => {
-      if (this.isHost) {
-        for (const room of rooms.filter((r) => r.level === this.floor)) {
-          room.render();
-        }
-      } else {
-        for (
-          const room of rooms.filter((r) => (r.level === this.floor) && r.known)
-        ) {
-          room.render();
-        }
+      for (const room of rooms.filter((r) => r.level === this.floor)) {
+        room.render();
       }
+      // if (this.isHost) {
+      // } else {
+      //   for (
+      //     const room of rooms.filter((r) => (r.level === this.floor) && r.known)
+      //   ) {
+      //     room.render();
+      //   }
+      // }
     });
   };
   render = () => {
@@ -557,6 +557,7 @@ export class Game {
   };
 
   initDoodler = (bg: string) => {
+    if (window.doodler) return;
     initializeDoodler(
       {
         height: 32 * 60,

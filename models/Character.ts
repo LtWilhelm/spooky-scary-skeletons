@@ -28,6 +28,7 @@ export class Character {
   hasMoved = true;
 
   gatheredTreasures: string[] = [];
+  knownTreasures: Room[] = [];
 
   score = 0;
   image: HTMLImageElement;
@@ -110,11 +111,16 @@ export class Character {
     buttons.forEach((b) =>
       b.addEventListener("click", (e) => {
         const dir = (e.target as HTMLButtonElement).dataset.dir;
-        if (dir !== "c") {
-          this.move(dir as direction);
-        } else {
-          this.room.search();
-          this.hasMoved = true;
+        switch (dir) {
+          case "c":
+            this.room.search();
+            break;
+          case "b":
+            this.item?.use();
+            break;
+
+          default:
+            this.move(dir as direction);
         }
       })
     );
@@ -148,6 +154,9 @@ export class Character {
       }
 
       if (dir === "c" && !this.room.hasBeenSearched) {
+        b.disabled = false;
+      }
+      if (dir === "b" && this.item?.usable) {
         b.disabled = false;
       }
 
@@ -228,30 +237,36 @@ export class Character {
     }
 
     if (this.name !== "skeleton" && this.name !== "ghost") {
-      doodler.drawWithAlpha(this.safe ? .5 : 1, () => {
+      doodler.drawWithAlpha(this.safe ? .25 : 1, () => {
         doodler.drawScaled(1 / scale, () => {
-          doodler.drawImage(
-            this.image,
-            startPos.copy().add(this.roomPosition).mult(scale),
-          );
+          this.game?.character === this
+            ? doodler.drawImageWithOutline(
+              this.image,
+              startPos.copy().add(this.roomPosition).mult(scale),
+              { color: "lime", weight: 6 },
+            )
+            : doodler.drawImage(
+              this.image,
+              startPos.copy().add(this.roomPosition).mult(scale),
+            );
         });
       });
       doodler.deferDrawing(() => {
         doodler.drawScaled(10 / scale, () => {
           const name = this.uuid === this.game?.character?.uuid
-            ? "◈"
+            ? ""
             : this.name;
-          doodler.strokeText(
-            name,
-            startPos.copy().add(this.roomPosition).add(4, 12).mult(scale),
-            40,
-            { strokeColor: "white", textAlign: "center" },
-          );
+          // doodler.strokeText(
+          //   name,
+          //   startPos.copy().add(this.roomPosition).add(4, 12).mult(scale),
+          //   40,
+          //   { strokeColor: "white", textAlign: "center" },
+          // );
           doodler.fillText(
             name,
             startPos.copy().add(this.roomPosition).add(4, 12).mult(scale),
             40,
-            { strokeColor: "purple", textAlign: "center" },
+            { color: "lime", textAlign: "center" },
           );
         });
       });

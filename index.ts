@@ -32,6 +32,7 @@ const join = () => {
   <button class="movement" data-dir="up">Up</button>
   <button class="movement" data-dir="down">Down</button>
   <button class="movement" data-dir="c">Search</button>
+  <button class="movement" data-dir="b">Use Item</button>
   `;
 };
 
