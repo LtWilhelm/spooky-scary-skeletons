@@ -1016,74 +1016,18 @@ class Item {
         });
     }
 }
-class SpiderJar extends Item {
-    constructor(player, game){
-        super("Spider Jar", 1, 15, player, game, `
-      Ew, a jar full of spiders!
-      Might be useful to slow down your opponents...
-      `, imageLibrary.spiders);
+class Lantern extends Item {
+    constructor(p, g){
+        super("Spectral Lantern", Infinity, 15, p, g, `
+      A strange blue lantern catches your eye.
+      The cobwebs in the corners of the room glow brightly when you pick it up.
+      `, imageLibrary.lantern);
     }
-    get usable() {
-        return this.uses > 0;
+    onPickup() {
+        this.player.canSeeTraps = true;
     }
-    use() {
-        if (!this.uses) return false;
-        const buttons = document.createElement("div");
-        buttons.classList.add("buttons");
-        const prev = this.game.dialog?.innerHTML;
-        const close = ()=>{
-            this.game.dialog?.close();
-            this.game.dialog.innerHTML = prev || "";
-        };
-        for (const door of this.player.room.doors){
-            const room = this.player.room.neighbors[door];
-            if (!room) continue;
-            const button = document.createElement("button");
-            button.dataset.dir = door;
-            button.textContent = door;
-            button.addEventListener("click", ()=>{
-                this.game.sendMessage({
-                    action: "trap",
-                    roomId: room.uuid,
-                    playerId: this.player.uuid,
-                    playerName: this.player.name
-                });
-                this.uses--;
-                this.onDrop();
-                this.player.item = undefined;
-                this.player.move("search");
-                close();
-            });
-            buttons.append(button);
-        }
-        const button = document.createElement("button");
-        button.dataset.dir = "c";
-        button.textContent = "Here";
-        button.addEventListener("click", ()=>{
-            this.game.sendMessage({
-                action: "trap",
-                roomId: this.player.room.uuid,
-                playerId: this.player.uuid,
-                playerName: this.player.name
-            });
-            this.uses--;
-            this.onDrop();
-            this.player.item = undefined;
-            this.player.move("search");
-            close();
-        });
-        buttons.append(button);
-        const cancel = document.createElement("button");
-        cancel.dataset.dir = "b";
-        cancel.textContent = "Nevermind...";
-        cancel.addEventListener("click", ()=>{
-            close();
-        });
-        buttons.append(cancel);
-        this.game.dialog.innerHTML = "Which way would you like to throw the jar of spiders?";
-        this.game.dialog.append(buttons);
-        this.game.dialog.showModal();
-        return true;
+    onDrop() {
+        this.player.canSeeTraps = false;
     }
 }
 class Character {
@@ -1710,7 +1654,7 @@ class Room {
             case "entrance":
                 return [
                     {
-                        item: SpiderJar,
+                        item: Lantern,
                         type: "item",
                         weight: 1
                     }

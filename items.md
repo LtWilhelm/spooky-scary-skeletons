@@ -8,7 +8,7 @@
 - [x] Crystal Ball: Permanently reveals the treasure location of the level
       you're on, can only be used once
 - [x] Jar of Spiders: allows you to set a trap to slow down opponents
-- [ ] Ethereal Lantern: When lit, it reveals invisible traps in your current
+- [x] Ethereal Lantern: When lit, it reveals invisible traps in your current
       room and the adjacent ones.
 - [ ] Spectral Quill (Study): Allows you to draw a temporary door, creating a
       one-time shortcut to another room on the same floor. One time use
