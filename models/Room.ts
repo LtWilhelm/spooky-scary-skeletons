@@ -6,6 +6,20 @@ import { imageLibrary } from "../images.ts";
 import { Item } from "./items/Item.ts";
 import { Skull } from "./items/index.ts";
 
+type itemLoot = {
+  item: new (player: Character, game: Game) => Item;
+  type: "item";
+  weight: number;
+};
+type pointLoot = {
+  type: "points";
+  value: number;
+  name: string;
+  weight: number;
+};
+
+type loot = itemLoot | pointLoot;
+
 export class Room {
   level: floors;
   name: rooms;
@@ -15,7 +29,7 @@ export class Room {
 
   unique?: boolean;
 
-  game?: Game;
+  game: Game;
 
   doors: direction[];
 
@@ -39,6 +53,8 @@ export class Room {
   image: HTMLImageElement;
   doorImage: HTMLImageElement;
 
+  itemChance: number;
+
   constructor(r: Partial<Room>, g: Game) {
     this.level = r.level!;
     this.name = r.name!;
@@ -52,6 +68,8 @@ export class Room {
     this.doorImage = new Image(32, 32);
 
     this.game = g;
+
+    this.itemChance = Math.max(0, Math.random() - .5);
 
     this.doorImage = this.level === "basement"
       ? imageLibrary.basementDoor
@@ -201,12 +219,7 @@ export class Room {
     return `${this.position.x},${this.position.y},${this.level}`;
   }
 
-  get lootTable(): {
-    item?: new (player: Character, game: Game) => Item;
-    type: "points" | "item";
-    value?: number;
-    name?: string;
-  }[] {
+  get lootTable(): loot[] {
     switch (this.name) {
       case "hallway":
       case "stairs":
@@ -221,12 +234,37 @@ export class Room {
           {
             item: Skull,
             type: "item",
+            weight: 1,
           },
         ];
       case "catacomb":
       case "alcoves":
     }
     return [];
+  }
+
+  hasBeenSearched = false;
+
+  search() {
+    this.hasBeenSearched = true;
+    if (Math.random() < this.itemChance) {
+      const loots = [];
+      for (const loot of this.lootTable) {
+        for (let i = 0; i < loot.weight; i++) {
+          loots.push(loot);
+        }
+      }
+
+      const loot = loots[Math.floor(Math.random() * loots.length)];
+
+      switch (loot.type) {
+        case "points":
+          break;
+        case "item":
+          new loot.item(this.game.character!, this.game);
+          break;
+      }
+    }
   }
 
   rotation: number;
@@ -302,7 +340,36 @@ export class Room {
         if (room === this) continue;
         for (const char of room.characters.values()) {
           if (char.name !== "skeleton") continue;
-          char.render();
+          doodler.deferDrawing(() => {
+            doodler.drawScaled(10, () => {
+              char.render();
+            });
+          });
+        }
+      }
+    }
+
+    if (
+      this.game?.character?.sight &&
+      this.characters.get(this.game.character.uuid)
+    ) {
+      console.log("hello?");
+      for (const door of this.doors) {
+        let room = this.neighbors[door];
+        while (
+          room &&
+          this.calculateDistanceToRoom(room) < this.game.character.sight + 1
+        ) {
+          const r = room;
+          doodler.deferDrawing(() => {
+            doodler.drawScaled(10, () => {
+              for (const char of r.characters.values()) {
+                char.render();
+              }
+            });
+          });
+          if (room.doors.includes(door)) room = room.neighbors[door];
+          else room = undefined;
         }
       }
     }

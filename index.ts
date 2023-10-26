@@ -44,7 +44,9 @@ const join = () => {
   <button class="movement" data-dir="east">East</button>
   <button class="movement" data-dir="west">West</button>
   <button class="movement" data-dir="up">Up</button>
-  <button class="movement" data-dir="down">Down</button>`;
+  <button class="movement" data-dir="down">Down</button>
+  <button class="movement" data-dir="c">Search</button>
+  `;
 };
 
 const host = () => {

@@ -30,9 +30,11 @@ export class Game {
     this.render();
   };
 
+  skeletonCount = 3;
+
   generate = () => {
     let solvable = false;
-    const skeletonCount = Number(prompt("How many skeletons?") || "3");
+    this.skeletonCount = Number(prompt("How many skeletons?") || "3");
     while (!solvable) {
       const floors: floors[] = ["basement", "lower", "upper"];
       this.grid = new Map();
@@ -116,7 +118,12 @@ export class Game {
           }
         }
 
-        const bannedRooms: rooms[] = ["hallway", "stairs", "entrance"];
+        const bannedRooms: rooms[] = [
+          "hallway",
+          "stairs",
+          "entrance",
+          "dungeon",
+        ];
         let treasureRoom = this.grid.get(this.randomSelector(floor));
         while (
           !treasureRoom?.doors.length || bannedRooms.includes(treasureRoom.name)
@@ -124,15 +131,6 @@ export class Game {
           treasureRoom = this.grid.get(this.randomSelector(floor));
         }
         treasureRoom.hasTreasure = true;
-      }
-
-      for (let i = 0; i < skeletonCount; i++) {
-        const skeleton = new Character("skeleton");
-        skeleton.game = this;
-        skeleton.room = this.grid.get(this.randomSelector())!;
-        skeleton.room?.characters.set(skeleton.uuid, skeleton);
-        this.characters.set(skeleton.uuid, skeleton);
-        // skeleton.room?.characters.push(skeleton);
       }
 
       for (const room of this.grid.values()) this.rooms.push(room);
@@ -493,6 +491,17 @@ export class Game {
   };
 
   startGame = () => {
+    for (let i = 0; i < this.skeletonCount; i++) {
+      const skeleton = new Character("skeleton");
+      skeleton.uuid = "skeleton-" + i;
+      skeleton.game = this;
+      skeleton.room = this.grid.get(this.randomSelector())!;
+      while (skeleton.room.name === "entrance") {
+        skeleton.room = this.grid.get(this.randomSelector())!;
+      }
+      this.characters.set(skeleton.uuid, skeleton);
+      this.sendRoom(skeleton.room.uuid, skeleton.uuid);
+    }
     this.channel?.send(JSON.stringify({ action: "unlock" }));
     const buttons = document.querySelector(".buttons");
     buttons!.innerHTML = `
@@ -579,10 +588,10 @@ export class Game {
             this.character.room?.name === "entrance"
           ) {
             this.dialog!.innerHTML = `
-          🎃🎃🎃<br>
-          Congratulations! You have collected all of the treasures and escaped to safety!<br>
-          🎃🎃🎃
-        `;
+              🎃🎃🎃<br>
+              Congratulations! You have collected all of the treasures and escaped to safety!<br>
+              🎃🎃🎃
+            `;
             this.dialog?.showModal();
             this.channel?.send(JSON.stringify({
               action: "win",
@@ -653,7 +662,6 @@ export class Game {
   createCharacter = (name: string) => {
     this.character = new Character(name);
     this.character.game = this;
-    this.character.vision = 1;
 
     this.channel?.send(JSON.stringify({
       action: "join",

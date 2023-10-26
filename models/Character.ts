@@ -18,7 +18,9 @@ export class Character {
     this._room.characters.set(this.uuid, this);
     if (this.uuid === this.game?.character?.uuid) {
       this.room.known = true;
-      !this.game?.isHost && (this.game!.floor = this._room.level);
+      if (!this.game?.isHost) {
+        this.game!.floor = this._room.level;
+      }
     }
   }
   game?: Game;
@@ -45,6 +47,7 @@ export class Character {
     }
   }
   vision = 0;
+  sight = 0;
 
   item?: Item;
 
@@ -106,7 +109,12 @@ export class Character {
     buttons.forEach((b) =>
       b.addEventListener("click", (e) => {
         const dir = (e.target as HTMLButtonElement).dataset.dir;
-        this.move(dir as direction);
+        if (dir !== "c") {
+          this.move(dir as direction);
+        } else {
+          this.room.search();
+          this.hasMoved = true;
+        }
       })
     );
   };
@@ -135,6 +143,10 @@ export class Character {
         dir === "down" && this.room?.name === "stairs" &&
         (this.room.level === "upper" || this.room.level === "lower")
       ) {
+        b.disabled = false;
+      }
+
+      if (dir === "c" && !this.room.hasBeenSearched) {
         b.disabled = false;
       }
 

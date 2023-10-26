@@ -973,7 +973,9 @@ class Character {
         this._room.characters.set(this.uuid, this);
         if (this.uuid === this.game?.character?.uuid) {
             this.room.known = true;
-            !this.game?.isHost && (this.game.floor = this._room.level);
+            if (!this.game?.isHost) {
+                this.game.floor = this._room.level;
+            }
         }
     }
     game;
@@ -996,6 +998,7 @@ class Character {
         }
     }
     vision = 0;
+    sight = 0;
     item;
     constructor(name){
         this.name = name;
@@ -1049,7 +1052,12 @@ class Character {
         const buttons = document.querySelectorAll("button.movement");
         buttons.forEach((b)=>b.addEventListener("click", (e)=>{
                 const dir = e.target.dataset.dir;
-                this.move(dir);
+                if (dir !== "c") {
+                    this.move(dir);
+                } else {
+                    this.room.search();
+                    this.hasMoved = true;
+                }
             }));
     };
     buttons = ()=>{
@@ -1067,6 +1075,9 @@ class Character {
                 b.disabled = false;
             }
             if (dir === "down" && this.room?.name === "stairs" && (this.room.level === "upper" || this.room.level === "lower")) {
+                b.disabled = false;
+            }
+            if (dir === "c" && !this.room.hasBeenSearched) {
                 b.disabled = false;
             }
             if (this.hasMoved) b.disabled = true;
@@ -1408,6 +1419,7 @@ class Room {
     color;
     image;
     doorImage;
+    itemChance;
     constructor(r, g){
         this.level = r.level;
         this.name = r.name;
@@ -1418,6 +1430,7 @@ class Room {
         this.image = new Image(32, 32);
         this.doorImage = new Image(32, 32);
         this.game = g;
+        this.itemChance = Math.max(0, Math.random() - .5);
         this.doorImage = this.level === "basement" ? imageLibrary.basementDoor : imageLibrary.door;
         switch(this.name){
             case "hallway":
@@ -1533,13 +1546,34 @@ class Room {
                 return [
                     {
                         item: Skull,
-                        type: "item"
+                        type: "item",
+                        weight: 1
                     }
                 ];
             case "catacomb":
             case "alcoves":
         }
         return [];
+    }
+    hasBeenSearched = false;
+    search() {
+        this.hasBeenSearched = true;
+        if (Math.random() < this.itemChance) {
+            const loots = [];
+            for (const loot of this.lootTable){
+                for(let i = 0; i < loot.weight; i++){
+                    loots.push(loot);
+                }
+            }
+            const loot = loots[Math.floor(Math.random() * loots.length)];
+            switch(loot.type){
+                case "points":
+                    break;
+                case "item":
+                    new loot.item(this.game.character, this.game);
+                    break;
+            }
+        }
     }
     rotation;
     render() {
@@ -1583,7 +1617,29 @@ class Room {
                 if (room === this) continue;
                 for (const __char of room.characters.values()){
                     if (__char.name !== "skeleton") continue;
-                    __char.render();
+                    doodler.deferDrawing(()=>{
+                        doodler.drawScaled(10, ()=>{
+                            __char.render();
+                        });
+                    });
+                }
+            }
+        }
+        if (this.game?.character?.sight && this.characters.get(this.game.character.uuid)) {
+            console.log("hello?");
+            for (const door of this.doors){
+                let room = this.neighbors[door];
+                while(room && this.calculateDistanceToRoom(room) < this.game.character.sight + 1){
+                    const r = room;
+                    doodler.deferDrawing(()=>{
+                        doodler.drawScaled(10, ()=>{
+                            for (const __char of r.characters.values()){
+                                __char.render();
+                            }
+                        });
+                    });
+                    if (room.doors.includes(door)) room = room.neighbors[door];
+                    else room = undefined;
                 }
             }
         }
@@ -1620,9 +1676,10 @@ class Game {
         this.skeletonMove();
         this.render();
     };
+    skeletonCount = 3;
     generate = ()=>{
         let solvable = false;
-        const skeletonCount = Number(prompt("How many skeletons?") || "3");
+        this.skeletonCount = Number(prompt("How many skeletons?") || "3");
         while(!solvable){
             const floors = [
                 "basement",
@@ -1711,20 +1768,14 @@ class Game {
                 const bannedRooms = [
                     "hallway",
                     "stairs",
-                    "entrance"
+                    "entrance",
+                    "dungeon"
                 ];
                 let treasureRoom = this.grid.get(this.randomSelector(floor));
                 while(!treasureRoom?.doors.length || bannedRooms.includes(treasureRoom.name)){
                     treasureRoom = this.grid.get(this.randomSelector(floor));
                 }
                 treasureRoom.hasTreasure = true;
-            }
-            for(let i = 0; i < skeletonCount; i++){
-                const skeleton = new Character("skeleton");
-                skeleton.game = this;
-                skeleton.room = this.grid.get(this.randomSelector());
-                skeleton.room?.characters.set(skeleton.uuid, skeleton);
-                this.characters.set(skeleton.uuid, skeleton);
             }
             for (const room of this.grid.values())this.rooms.push(room);
             solvable = solver(this.rooms);
@@ -1955,6 +2006,17 @@ class Game {
         this.channel = this.puppet.getChannel(channelId);
     };
     startGame = ()=>{
+        for(let i = 0; i < this.skeletonCount; i++){
+            const skeleton = new Character("skeleton");
+            skeleton.uuid = "skeleton-" + i;
+            skeleton.game = this;
+            skeleton.room = this.grid.get(this.randomSelector());
+            while(skeleton.room.name === "entrance"){
+                skeleton.room = this.grid.get(this.randomSelector());
+            }
+            this.characters.set(skeleton.uuid, skeleton);
+            this.sendRoom(skeleton.room.uuid, skeleton.uuid);
+        }
         this.channel?.send(JSON.stringify({
             action: "unlock"
         }));
@@ -2024,10 +2086,10 @@ class Game {
                     {
                         if (this.character?.gatheredTreasures.length === 3 && this.character.room?.name === "entrance") {
                             this.dialog.innerHTML = `
-          🎃🎃🎃<br>
-          Congratulations! You have collected all of the treasures and escaped to safety!<br>
-          🎃🎃🎃
-        `;
+              🎃🎃🎃<br>
+              Congratulations! You have collected all of the treasures and escaped to safety!<br>
+              🎃🎃🎃
+            `;
                             this.dialog?.showModal();
                             this.channel?.send(JSON.stringify({
                                 action: "win",
@@ -2089,7 +2151,6 @@ class Game {
     createCharacter = (name)=>{
         this.character = new Character(name);
         this.character.game = this;
-        this.character.vision = 1;
         this.channel?.send(JSON.stringify({
             action: "join",
             playerId: this.character.uuid,
@@ -2132,7 +2193,9 @@ const join = ()=>{
   <button class="movement" data-dir="east">East</button>
   <button class="movement" data-dir="west">West</button>
   <button class="movement" data-dir="up">Up</button>
-  <button class="movement" data-dir="down">Down</button>`;
+  <button class="movement" data-dir="down">Down</button>
+  <button class="movement" data-dir="c">Search</button>
+  `;
 };
 const host = ()=>{
     game.hostGame();
