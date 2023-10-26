@@ -4,7 +4,7 @@ import { Game } from "./Game.ts";
 import { direction, directions, floors, rooms } from "./index.ts";
 import { imageLibrary } from "../images.ts";
 import { Item } from "./items/Item.ts";
-import { Skull, Spyglass } from "./items/index.ts";
+import { Mirror, Skull, Spyglass } from "./items/index.ts";
 
 type itemLoot = {
   item: new (player: Character, game: Game) => Item;
@@ -232,7 +232,7 @@ export class Room {
       case "entrance":
         return [
           {
-            item: Spyglass,
+            item: Mirror,
             type: "item",
             weight: 1,
           },
@@ -247,7 +247,6 @@ export class Room {
 
   search() {
     this.hasBeenSearched = true;
-    console.log("searching", this.itemChance);
     if (Math.random() < this.itemChance) {
       const loots = [];
       for (const loot of this.lootTable) {
@@ -260,12 +259,15 @@ export class Room {
 
       switch (loot.type) {
         case "points":
+          // todo: handle scoring
           break;
         case "item":
           new loot.item(this.game.character!, this.game);
           break;
       }
     }
+    this.game.character?.move("search");
+    this.game.render();
   }
 
   rotation: number;
@@ -341,10 +343,14 @@ export class Room {
         this.calculateDistanceToRoom(r) <
           (this.game?.character?.vision || 0) + 1
       );
+      const player = this.game.character;
+      const renderables = ["skeleton", "ghost"].filter((r) =>
+        player.visionIncludesAllMonsters || r === "skeleton"
+      );
       for (const room of rooms) {
         if (room === this) continue;
         for (const char of room.characters.values()) {
-          if (char.name !== "skeleton") continue;
+          if (!renderables.includes(char.name)) continue;
           doodler.deferDrawing(() => {
             doodler.drawScaled(10, () => {
               char.render();
@@ -358,7 +364,6 @@ export class Room {
       this.game?.character?.sight &&
       this.characters.get(this.game.character.uuid)
     ) {
-      console.log("hello?");
       for (const door of this.doors) {
         let room = this.neighbors[door];
         while (

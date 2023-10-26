@@ -11,6 +11,6 @@
     "dev": "deno bundle --watch index.ts bundle.js"
   },
   "imports": {
-    "doodler": "https://git.cyborggrizzly.com/emma/doodler/raw/tag/0.0.9c/mod.ts"
+    "doodler": "https://git.cyborggrizzly.com/emma/doodler/raw/tag/0.0.9d/mod.ts"
   }
 }

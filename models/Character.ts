@@ -46,6 +46,7 @@ export class Character {
       }));
     }
   }
+  visionIncludesAllMonsters = false;
   vision = 0;
   sight = 0;
 
@@ -154,7 +155,7 @@ export class Character {
     });
   };
 
-  move = (dir?: direction | "up" | "down") => {
+  move = (dir?: direction | "up" | "down" | "search") => {
     this.roomPosition = new Vector(
       Math.floor(Math.random() * 26),
       Math.floor(Math.random() * 24),
@@ -180,6 +181,8 @@ export class Character {
           r.name === "stairs" &&
           r.level === options[dir as "up" | "down"][currentLevel]
         )!;
+      } else if (dir === "search") {
+        this.room === this.room;
       } else {
         this.room = this.room!.neighbors[dir]!;
       }
@@ -224,15 +227,15 @@ export class Character {
         break;
     }
 
-    doodler.drawWithAlpha(this.safe ? .5 : 1, () => {
-      doodler.drawScaled(1 / scale, () => {
-        doodler.drawImage(
-          this.image,
-          startPos.copy().add(this.roomPosition).mult(scale),
-        );
-      });
-    });
     if (this.name !== "skeleton" && this.name !== "ghost") {
+      doodler.drawWithAlpha(this.safe ? .5 : 1, () => {
+        doodler.drawScaled(1 / scale, () => {
+          doodler.drawImage(
+            this.image,
+            startPos.copy().add(this.roomPosition).mult(scale),
+          );
+        });
+      });
       doodler.deferDrawing(() => {
         doodler.drawScaled(10 / scale, () => {
           const name = this.uuid === this.game?.character?.uuid
@@ -251,6 +254,14 @@ export class Character {
             { strokeColor: "purple", textAlign: "center" },
           );
         });
+      });
+    } else {
+      doodler.drawScaled(1 / scale, () => {
+        doodler.drawImageWithOutline(
+          this.image,
+          startPos.copy().add(this.roomPosition).mult(scale),
+          { weight: 4, color: "purple" },
+        );
       });
     }
   }

@@ -416,6 +416,20 @@ class Doodler {
     drawImage(img, at, w, h) {
         w && h ? this.ctx.drawImage(img, at.x, at.y, w, h) : this.ctx.drawImage(img, at.x, at.y);
     }
+    drawImageWithOutline(img, at, w, h, style) {
+        this.ctx.save();
+        const s = (typeof w === "number" || !w ? style?.weight : w.weight) || 1;
+        this.ctx.shadowColor = (typeof w === "number" || !w ? style?.color || style?.fillColor : w.color || w.strokeColor) || "red";
+        this.ctx.shadowBlur = 0;
+        for(let x = -s; x <= s; x++){
+            for(let y = -s; y <= s; y++){
+                this.ctx.shadowOffsetX = x;
+                this.ctx.shadowOffsetY = y;
+                typeof w === "number" && h ? this.ctx.drawImage(img, at.x, at.y, w, h) : this.ctx.drawImage(img, at.x, at.y);
+            }
+        }
+        this.ctx.restore();
+    }
     drawSprite(img, spritePos, sWidth, sHeight, at, width, height) {
         this.ctx.drawImage(img, spritePos.x, spritePos.y, sWidth, sHeight, at.x, at.y, width, height);
     }
@@ -941,18 +955,24 @@ class Item {
     onPickup() {}
     onDrop() {}
 }
-class Spyglass extends Item {
+class Mirror extends Item {
     constructor(player, game){
-        super("Spyglass", Infinity, 5, player, game, `
-      You found a spyglass!
-      This let's you see monsters and players through doors across the map
+        super("Mirror", 1, 30, player, game, `
+      A Haunted Mirror!<br>
+      Peering through it reveals all monsters
       `);
+        this.addEventListener("captured", ()=>{
+            this.onDrop();
+            this.player.item = undefined;
+        });
     }
     onPickup() {
-        this.player.sight = 6;
+        this.player.vision = 10;
+        this.player.visionIncludesAllMonsters = true;
     }
     onDrop() {
-        this.player.sight = 0;
+        this.player.vision = 0;
+        this.player.visionIncludesAllMonsters = false;
     }
 }
 class Character {
@@ -992,6 +1012,7 @@ class Character {
             }));
         }
     }
+    visionIncludesAllMonsters = false;
     vision = 0;
     sight = 0;
     item;
@@ -1098,6 +1119,8 @@ class Character {
                     }
                 };
                 this.room = this.game?.rooms.find((r)=>r.name === "stairs" && r.level === options[dir][currentLevel]);
+            } else if (dir === "search") {
+                this.room === this.room;
             } else {
                 this.room = this.room.neighbors[dir];
             }
@@ -1127,12 +1150,12 @@ class Character {
                 scale = 3;
                 break;
         }
-        doodler.drawWithAlpha(this.safe ? .5 : 1, ()=>{
-            doodler.drawScaled(1 / scale, ()=>{
-                doodler.drawImage(this.image, startPos.copy().add(this.roomPosition).mult(scale));
-            });
-        });
         if (this.name !== "skeleton" && this.name !== "ghost") {
+            doodler.drawWithAlpha(this.safe ? .5 : 1, ()=>{
+                doodler.drawScaled(1 / scale, ()=>{
+                    doodler.drawImage(this.image, startPos.copy().add(this.roomPosition).mult(scale));
+                });
+            });
             doodler.deferDrawing(()=>{
                 doodler.drawScaled(10 / scale, ()=>{
                     const name = this.uuid === this.game?.character?.uuid ? "◈" : this.name;
@@ -1144,6 +1167,13 @@ class Character {
                         strokeColor: "purple",
                         textAlign: "center"
                     });
+                });
+            });
+        } else {
+            doodler.drawScaled(1 / scale, ()=>{
+                doodler.drawImageWithOutline(this.image, startPos.copy().add(this.roomPosition).mult(scale), {
+                    weight: 4,
+                    color: "purple"
                 });
             });
         }
@@ -1540,7 +1570,7 @@ class Room {
             case "entrance":
                 return [
                     {
-                        item: Spyglass,
+                        item: Mirror,
                         type: "item",
                         weight: 1
                     }
@@ -1553,7 +1583,6 @@ class Room {
     hasBeenSearched = false;
     search() {
         this.hasBeenSearched = true;
-        console.log("searching", this.itemChance);
         if (Math.random() < this.itemChance) {
             const loots = [];
             for (const loot of this.lootTable){
@@ -1570,6 +1599,8 @@ class Room {
                     break;
             }
         }
+        this.game.character?.move("search");
+        this.game.render();
     }
     rotation;
     drawTreasure() {
@@ -1612,10 +1643,15 @@ class Room {
         }
         if (this.game?.character?.vision && this.characters.get(this.game.character.uuid)) {
             const rooms = this.game.rooms.filter((r)=>r.level === this.level && this.calculateDistanceToRoom(r) < (this.game?.character?.vision || 0) + 1);
+            const player = this.game.character;
+            const renderables = [
+                "skeleton",
+                "ghost"
+            ].filter((r)=>player.visionIncludesAllMonsters || r === "skeleton");
             for (const room of rooms){
                 if (room === this) continue;
                 for (const __char of room.characters.values()){
-                    if (__char.name !== "skeleton") continue;
+                    if (!renderables.includes(__char.name)) continue;
                     doodler.deferDrawing(()=>{
                         doodler.drawScaled(10, ()=>{
                             __char.render();
@@ -1625,7 +1661,6 @@ class Room {
             }
         }
         if (this.game?.character?.sight && this.characters.get(this.game.character.uuid)) {
-            console.log("hello?");
             for (const door of this.doors){
                 let room = this.neighbors[door];
                 while(room && this.calculateDistanceToRoom(room) < this.game.character.sight + 1){

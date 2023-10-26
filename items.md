@@ -1,8 +1,8 @@
 - [x] Skull (crypts): Prevents you from being captured by skeletons one time,
       shows skeletons in neighboring rooms
-- [ ] Spyglass: Let's you see in a straight line in each direction through
+- [x] Spyglass: Let's you see in a straight line in each direction through
       doors, revealing monsters and treasure
-- [ ] Mirror (bedroom): Shows the location of all monsters on your level, breaks
+- [x] Mirror (bedroom): Shows the location of all monsters on your level, breaks
       if you get captured
 - [ ] Thread: Shows the path back to the exit
 - [ ] Crystal Ball: Permanently reveals the treasure location of the level
@@ -17,7 +17,8 @@
 - [ ] Hourglass: freezes all monsters for one turn. One time use
 - [ ] Music box: Attracts skeletons to the room it's used in for 3 turns. 3 uses
 - [ ] Cursed dice (game room): Has 50/50 chance of teleporting a random skeleton
-      to you or an opponent.
+      to you or an opponent when you search a room. Points gained while
+      searching are doubled
 - [ ] Spectral Compass: Points towards the treasure on this floor. If the
       treasure has been collected, points to the stairs instead. Shows nearby
       skeletons and prevents you from being captured 3 times, at which point it
