@@ -1016,18 +1016,40 @@ class Item {
         });
     }
 }
-class Lantern extends Item {
+class Hourglass extends Item {
     constructor(p, g){
-        super("Spectral Lantern", Infinity, 15, p, g, `
-      A strange blue lantern catches your eye.
-      The cobwebs in the corners of the room glow brightly when you pick it up.
-      `, imageLibrary.lantern);
+        super("Bone-sand Hourglass", 2, 30, p, g, `
+      The sound of sand draws your attention to an hourglass.
+      The irregular, bone-colored sand seems to last just long enough for you to move between rooms.
+      Highlights nearby skeletons while held and for 5 turns after using.
+      `, imageLibrary.hourglass);
     }
+    sandDrops = 5;
+    handleMove = (e)=>{
+        console.log("player moved");
+        console.log(this.player);
+        if (e.detail === this.player && !this.sandDrops--) this.onDrop();
+    };
     onPickup() {
-        this.player.canSeeTraps = true;
+        this.player.vision = 1;
     }
     onDrop() {
-        this.player.canSeeTraps = false;
+        this.player.vision = 0;
+        this.player.item = undefined;
+    }
+    use() {
+        if (!this.uses) return false;
+        this.game.sendMessage({
+            action: "freeze",
+            playerId: this.player.uuid
+        });
+        if (this.uses === 1) {
+            addEventListener("playermove", this.handleMove);
+        }
+        return super.use();
+    }
+    get usable() {
+        return !!this.uses;
     }
 }
 class Character {
@@ -1073,6 +1095,7 @@ class Character {
     vision = 0;
     sight = 0;
     item;
+    frozen = 0;
     constructor(name, game){
         this.name = name;
         this.uuid = window.crypto.randomUUID();
@@ -1219,9 +1242,14 @@ class Character {
             this.game.floor = this.room?.level || this.game.floor;
         } else {
             const validSpaces = this.validSpaces;
-            this.room = this.room.trapCount ? this.room : validSpaces[Math.floor(Math.random() * validSpaces.length)][1];
-            this.room.trapCount && (this.room.trapCount -= 1);
+            this.room = this.room.trapCount || this.frozen ? this.room : validSpaces[Math.floor(Math.random() * validSpaces.length)][1];
+            this.room.trapCount && this.room.trapCount--;
+            this.frozen && this.frozen--;
         }
+        const moveEvent = new CustomEvent("playermove", {
+            detail: this
+        });
+        dispatchEvent(moveEvent);
     };
     searchRoom = ()=>{};
     roomPosition;
@@ -1273,7 +1301,7 @@ class Channel {
         this.id = id;
         this.socket = socket;
     }
-    send = (message, clientToSendTo)=>this.socket.send(JSON.stringify({
+    send = (message, clientToSendTo)=>this.socket.OPEN && this.socket.send(JSON.stringify({
             send_packet: {
                 to: this.id,
                 message,
@@ -1310,19 +1338,43 @@ class Sockpuppet {
     callbacks;
     initialPing;
     keepAlive = true;
+    _versionMismatch;
+    get versionMismatch() {
+        return this._versionMismatch;
+    }
+    _handshakeAccepted = false;
+    get handshakeAccepted() {
+        return this._handshakeAccepted;
+    }
+    handshakeCheckDelay = 4000;
+    socketReady = false;
+    static puppetVersion = "0.6";
+    messageQueue = [];
     constructor(path, onConnect, options){
         if (isFullUrl(path)) this.socket = new WebSocket(path);
         else this.socket = new WebSocket(`${window.location.host}${path}`);
-        if (onConnect) this.socket.addEventListener('open', ()=>{
-            onConnect();
-        });
+        if (onConnect) {
+            this.socket.addEventListener("open", ()=>{
+                this.socket.send("handshake");
+                this.socketReady = true;
+                setTimeout(()=>{
+                    if (!this.handshakeAccepted && this.socketReady) {
+                        this._versionMismatch = true;
+                        console.warn(`Socket has connected successfully but did not receive a handshake. If the host is a Sockpuppet server, then it may be an older version that does not support handshakes. Consider upgrading the server to ${Sockpuppet.puppetVersion}`);
+                    }
+                }, this.handshakeCheckDelay);
+                onConnect();
+            });
+        }
         this.keepAlive = options?.keepAlive ?? this.keepAlive;
-        this.socket.addEventListener('message', this.handleMessage);
-        if (this.keepAlive) this.initialPing = setTimeout(()=>this.socket.send('pong'), 5000);
+        this.socket.addEventListener("message", this.handleMessage);
+        if (this.keepAlive) {
+            this.initialPing = setTimeout(()=>this.socket.OPEN && this.socket.send("pong"), 5000);
+        }
         this.channels = new Map();
         this.callbacks = new Map([
             [
-                'disconnect',
+                "disconnect",
                 []
             ]
         ]);
@@ -1338,7 +1390,7 @@ class Sockpuppet {
                 ]
             }));
         } else {
-            this.socket.addEventListener('open', ()=>{
+            this.socket.addEventListener("open", ()=>{
                 const channel = new Channel(channelId, this.socket);
                 this.channels.set(channelId, channel);
                 channel.addListener(handler);
@@ -1356,35 +1408,63 @@ class Sockpuppet {
         }
         this.callbacks.get(event)?.push(callback);
     };
-    onDisconnect = (callback)=>this.callbacks.get('disconnect')?.push(callback);
+    onDisconnect = (callback)=>this.callbacks.get("disconnect")?.push(callback);
     handleMessage = (message)=>{
         switch(message.data){
             case "open":
             case "connected":
                 break;
             case "disconnected":
-                this.callbacks.get('disconnect')?.forEach((cb)=>cb(message.data));
+                this.callbacks.get("disconnect")?.forEach((cb)=>cb(message.data));
                 this.channels.forEach((channel)=>channel.execLeaveListeners());
                 break;
             case "ping":
                 clearTimeout(this.initialPing);
-                if (this.keepAlive) this.socket.send('pong');
-                break;
-            default:
-                try {
-                    const msg = new Message(JSON.parse(message.data));
-                    this.callbacks.get('message')?.forEach((cb)=>cb(msg));
-                    if (msg.event === 'leave') this.deleteChannel(msg.to);
-                    if (msg.event === 'join') this.channels.get(msg.to)?.execJoinListeners();
-                    if (msg.event === 'create') this.onChannelCreate(msg);
-                    this.callbacks.get(msg.event || msg.message)?.forEach((cb)=>cb(msg));
-                    this.channels.get(msg.to)?.execListeners(msg.message);
-                } catch (_e) {
-                    const msg = message.data;
-                    this.callbacks.get(msg)?.forEach((cb)=>cb(msg));
+                if (this.keepAlive) {
+                    this.socket.send("pong");
                 }
                 break;
+            default:
+                this.messageQueue.push(message);
+                this.processQueue();
+                break;
         }
+    };
+    processQueue() {
+        let message = this.messageQueue.shift();
+        while(message){
+            try {
+                const msg = new Message(JSON.parse(message.data));
+                this.handleEvents(msg);
+            } catch (_e) {
+                const msg = message.data;
+                this.callbacks.get(msg)?.forEach((cb)=>cb(msg));
+            }
+            message = this.messageQueue.shift();
+        }
+    }
+    handleEvents = (message)=>{
+        switch(message.event){
+            case "leave":
+                this.deleteChannel(message.to);
+                break;
+            case "join":
+                this.channels.get(message.to)?.execJoinListeners();
+                break;
+            case "create":
+                this.onChannelCreate(message);
+                break;
+            case "handshake":
+                {
+                    this._handshakeAccepted = true;
+                    this._versionMismatch = message.message.puppetVersion < Sockpuppet.puppetVersion;
+                    if (this._versionMismatch) {
+                        console.warn("Sockpuppet server version is older than client. Functionality is limited");
+                    }
+                }
+        }
+        this.callbacks.get(message.event || message.message)?.forEach((cb)=>cb(message));
+        this.channels.get(message.to)?.execListeners(message.message);
     };
     leaveChannel = (channelId)=>this.socket.send(JSON.stringify({
             disconnect_from: [
@@ -1408,10 +1488,10 @@ class Sockpuppet {
                 if (channelMessage) {
                     clearInterval(poll);
                     switch(channelMessage.status){
-                        case 'FAILED':
+                        case "FAILED":
                             rej(channelMessage);
                             break;
-                        case 'SUCCESS':
+                        case "SUCCESS":
                             res(channelMessage);
                             break;
                     }
@@ -1424,7 +1504,7 @@ class Sockpuppet {
         this.channelCreateMessages.set(msg.channelId, msg);
     };
 }
-const isFullUrl = (url)=>/(wss?|https?):\/\/.+\.(io|com|org|net)(\/.*)?/i.test(url) || url.includes('localhost');
+const isFullUrl = (url)=>/(wss?|https?):\/\/.+\.(io|com|org|net)(\/.*)?/i.test(url) || url.includes("localhost");
 const solver = (rooms)=>{
     const basementStairs = rooms.find((r)=>r.name === "stairs" && r.level === "basement");
     const lowerStairs = rooms.find((r)=>r.name === "stairs" && r.level === "lower");
@@ -1654,7 +1734,7 @@ class Room {
             case "entrance":
                 return [
                     {
-                        item: Lantern,
+                        item: Hourglass,
                         type: "item",
                         weight: 1
                     }
@@ -1997,7 +2077,9 @@ class Game {
         const skeletons = characters.filter((c)=>c.name === "skeleton");
         for (const character of characters){
             if (character.name !== "skeleton") {
-                for (const skeleton of skeletons){
+                skellies: for (const skeleton of skeletons){
+                    if (skeleton.frozen) continue skellies;
+                    console.log(skeleton.frozen);
                     if (!character.safe && character.room === skeleton.room) {
                         character.room = this.rooms.find((r)=>r.name === "dungeon");
                         this.channel?.send(JSON.stringify({
@@ -2035,7 +2117,7 @@ class Game {
             }, 2000);
         }
     };
-    puppet = new Sockpuppet("wss://skirmish.ursadesign.io");
+    puppet = new Sockpuppet("wss://sockpuppet.cyborggrizzly.com");
     hostGame = async ()=>{
         this.initDoodler("red");
         this.isHost = true;
@@ -2114,6 +2196,14 @@ class Game {
                         const room = this.rooms.find((r)=>r.uuid === message.roomId);
                         if (!room) break;
                         room.trapCount += 1;
+                        break;
+                    }
+                case "freeze":
+                    {
+                        for(let i = 0; i < this.skeletonCount; i++){
+                            const skel = this.characters.get("skeleton-" + i);
+                            skel.frozen += 3;
+                        }
                         break;
                     }
             }

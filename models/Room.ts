@@ -8,6 +8,7 @@ import { Mirror, Skull, Spyglass } from "./items/index.ts";
 import { CrystalBall } from "./items/CrystalBall.ts";
 import { SpiderJar } from "./items/SpiderJar.ts";
 import { Lantern } from "./items/Lantern.ts";
+import { Hourglass } from "./items/Hourglass.ts";
 
 type itemLoot = {
   item: new (player: Character, game: Game) => Item;
@@ -237,7 +238,7 @@ export class Room {
       case "entrance":
         return [
           {
-            item: Lantern,
+            item: Hourglass,
             type: "item",
             weight: 1,
           },

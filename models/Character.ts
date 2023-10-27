@@ -55,6 +55,8 @@ export class Character {
 
   item?: Item;
 
+  frozen = 0;
+
   constructor(name: string, game: Game) {
     this.name = name;
     this.uuid = window.crypto.randomUUID();
@@ -234,11 +236,14 @@ export class Character {
       this.game!.floor = this.room?.level || this.game!.floor;
     } else {
       const validSpaces = this.validSpaces;
-      this.room = this.room.trapCount
+      this.room = this.room.trapCount || this.frozen
         ? this.room
         : validSpaces[Math.floor(Math.random() * validSpaces.length)]![1]!;
-      this.room.trapCount && (this.room.trapCount -= 1);
+      this.room.trapCount && (this.room.trapCount--);
+      this.frozen && (this.frozen--);
     }
+    const moveEvent = new CustomEvent("playermove", { detail: this });
+    dispatchEvent(moveEvent);
   };
 
   searchRoom = () => {

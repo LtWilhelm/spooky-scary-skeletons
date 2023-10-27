@@ -11,6 +11,7 @@
     "dev": "deno bundle --watch index.ts bundle.js"
   },
   "imports": {
-    "doodler": "https://git.cyborggrizzly.com/emma/doodler/raw/tag/0.0.9d/mod.ts"
+    "doodler": "https://git.cyborggrizzly.com/emma/doodler/raw/tag/0.0.9d/mod.ts",
+    "sockpuppet/": "https://deno.land/x/sockpuppet@0.6.3/client/"
   }
 }

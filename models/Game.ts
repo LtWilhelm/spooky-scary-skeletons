@@ -2,8 +2,8 @@ import { Character } from "./Character.ts";
 import { direction, floors, gridAccessor, rooms } from "./index.ts";
 import { Room } from "./Room.ts";
 
-import { Sockpuppet } from "https://deno.land/x/sockpuppet@Alpha0.5.7/client/mod.ts";
-import { Channel } from "https://deno.land/x/sockpuppet@Alpha0.5.7/client/Channel.ts";
+import { Sockpuppet } from "sockpuppet/mod.ts";
+import { Channel } from "sockpuppet/Channel.ts";
 import { solver } from "../solver.ts";
 import { initializeDoodler } from "doodler";
 import { Vector } from "https://git.cyborggrizzly.com/emma/doodler/raw/tag/0.0.9d/geometry/vector.ts";
@@ -317,14 +317,21 @@ export class Game {
       Math.floor(Math.random() * this.gridSize.y)
     },${floor || floors[Math.floor(Math.random() * floors.length)]}`;
 
+  // TODO: This needs to be refactored now that rooms are aware of characters inside them - this should also be moved to the skeleton class when it gets created
   skeletonCheck = () => {
     const characters = Array.from(this.characters.values());
     const skeletons = characters.filter((c) => c.name === "skeleton");
 
     for (const character of characters) {
       if (character.name !== "skeleton") {
+        skellies:
         for (const skeleton of skeletons) {
-          if (!character.safe && character.room === skeleton.room) {
+          if (skeleton.frozen) continue skellies;
+          console.log(skeleton.frozen);
+          if (
+            !character.safe &&
+            character.room === skeleton.room
+          ) {
             character.room = this.rooms.find((r) => r.name === "dungeon")!;
             this.channel?.send(JSON.stringify({
               action: "captured",
@@ -367,7 +374,7 @@ export class Game {
     }
   };
 
-  puppet = new Sockpuppet("wss://skirmish.ursadesign.io");
+  puppet = new Sockpuppet("wss://sockpuppet.cyborggrizzly.com");
 
   hostGame = async () => {
     this.initDoodler("red");
@@ -442,6 +449,13 @@ export class Game {
           const room = this.rooms.find((r) => r.uuid === message.roomId);
           if (!room) break;
           room.trapCount += 1;
+          break;
+        }
+        case "freeze": {
+          for (let i = 0; i < this.skeletonCount; i++) {
+            const skel = this.characters.get("skeleton-" + i)!;
+            skel.frozen += 3;
+          }
           break;
         }
       }
@@ -670,6 +684,7 @@ interface socketPacket {
     | "room"
     | "safe"
     | "trap"
+    | "freeze"
     | "score";
   playerId: string;
   playerName?: string;
