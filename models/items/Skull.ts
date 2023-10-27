@@ -21,6 +21,7 @@ export class Skull extends Item {
   }
 
   onPickup(): void {
+    super.onPickup();
     this.player.item?.onDrop();
     this.player.item = this;
     this.player.safe = true;

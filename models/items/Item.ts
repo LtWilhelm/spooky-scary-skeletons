@@ -54,9 +54,7 @@ export class Item {
     };
     const takeBtn = document.createElement("button");
     takeBtn.addEventListener("click", () => {
-      this.player.item?.onDrop();
-      this.player.item = this;
-      this.player.item.onPickup();
+      this.onPickup();
       this.game.render();
       close();
     });
@@ -71,7 +69,10 @@ export class Item {
     this.game.dialog?.showModal();
   }
 
-  onPickup() {}
+  onPickup() {
+    this.player.item?.onDrop();
+    this.player.item = this;
+  }
 
   onDrop() {}
 

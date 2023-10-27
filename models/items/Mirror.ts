@@ -24,6 +24,7 @@ export class Mirror extends Item {
   }
 
   onPickup(): void {
+    super.onPickup();
     this.player.vision = 10;
     this.player.visionIncludesAllMonsters = true;
   }

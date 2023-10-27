@@ -19,6 +19,7 @@ export class Lantern extends Item {
   }
 
   onPickup(): void {
+    super.onPickup();
     this.player.canSeeTraps = true;
   }
 

@@ -449,6 +449,18 @@ export class Room {
         );
       });
     }
+
+    if (
+      this.game.character?.seesTunnels && this.secretTunnel
+    ) {
+      for (const char of this.characters.values()) {
+        doodler.deferDrawing(() => {
+          doodler.drawScaled(10, () => {
+            char.render();
+          });
+        });
+      }
+    }
   }
 
   private calculateDistanceToRoom(room: Room) {

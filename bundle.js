@@ -990,9 +990,7 @@ class Item {
         };
         const takeBtn = document.createElement("button");
         takeBtn.addEventListener("click", ()=>{
-            this.player.item?.onDrop();
-            this.player.item = this;
-            this.player.item.onPickup();
+            this.onPickup();
             this.game.render();
             close();
         });
@@ -1005,7 +1003,10 @@ class Item {
         this.game.dialog?.append(document.createElement("br"), takeBtn, leaveBtn);
         this.game.dialog?.showModal();
     }
-    onPickup() {}
+    onPickup() {
+        this.player.item?.onDrop();
+        this.player.item = this;
+    }
     onDrop() {}
     render() {
         const start = new Vector(0, this.game.gridSize.y).mult(32).add(2, 2);
@@ -1908,6 +1909,15 @@ class Room {
                     color: "white"
                 });
             });
+        }
+        if (this.game.character?.seesTunnels && this.secretTunnel) {
+            for (const __char of this.characters.values()){
+                doodler.deferDrawing(()=>{
+                    doodler.drawScaled(10, ()=>{
+                        __char.render();
+                    });
+                });
+            }
         }
     }
     calculateDistanceToRoom(room) {

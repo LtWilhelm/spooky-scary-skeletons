@@ -10,7 +10,7 @@
 - [x] Jar of Spiders: allows you to set a trap to slow down opponents
 - [x] Ethereal Lantern: When lit, it reveals invisible traps in your current
       room and the adjacent ones.
-- [ ] Spectral Quill (Study): Allows you to draw a temporary door, creating a
+- [x] Spectral Quill (Study): Allows you to draw a temporary door, creating a
       one-time shortcut to another room on the same floor. One time use
 - [ ] Cursed Portrait (Alcoves): When uncovered, this painting reveals hidden
       passages within the alcoves, giving you secret routes to explore.
