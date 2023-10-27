@@ -8,3 +8,4 @@ export { Hourglass } from "./Hourglass.ts";
 export { Dice } from "./Dice.ts";
 export { Quill } from "./Quill.ts";
 export { Thread } from "./Thread.ts";
+export { Compass } from "./Compass.ts";

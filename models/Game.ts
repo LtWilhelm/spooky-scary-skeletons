@@ -17,7 +17,7 @@ export class Game {
 
   grid: Map<gridAccessor, Room> = new Map();
 
-  entrance = { x: 0, y: 0 };
+  entranceD = { x: 0, y: 0 };
 
   isHost = false;
 
@@ -36,10 +36,18 @@ export class Game {
   skeletonCount = 3;
 
   stairs!: Record<floors, Room>;
+  dungeon!: Room;
+  entrance!: Room;
+  treasureRooms!: Record<floors, Room>;
 
   generate = () => {
     let solvable = false;
     const allStairs: Record<floors, Room | undefined> = {
+      upper: undefined,
+      lower: undefined,
+      basement: undefined,
+    };
+    const treasureRooms: Record<floors, Room | undefined> = {
       upper: undefined,
       lower: undefined,
       basement: undefined,
@@ -81,6 +89,7 @@ export class Game {
           }, this);
 
           this.grid.set(`${dungeonX},${dungeonY},${floor}`, dungeon);
+          this.dungeon = dungeon;
         }
 
         if (floor === "lower") {
@@ -102,10 +111,12 @@ export class Game {
           entrance.known = true;
 
           this.grid.set(`${entranceX},${entranceY},${floor}`, entrance);
-          this.entrance = {
+          this.entranceD = {
             x: entranceX,
             y: entranceY,
           };
+
+          this.entrance = entrance;
         }
 
         for (let x = 0; x < this.gridSize.x; x++) {
@@ -148,12 +159,15 @@ export class Game {
           treasureRoom = this.grid.get(this.randomSelector(floor));
         }
         treasureRoom.hasTreasure = true;
+
+        treasureRooms[floor] = treasureRoom;
       }
 
       for (const room of this.grid.values()) this.rooms.push(room);
       solvable = solver(this.rooms);
     }
     this.stairs = allStairs as Record<floors, Room>;
+    this.treasureRooms = treasureRooms as Record<floors, Room>;
     const tunnel1 = this.grid.get(this.randomSelector("basement"))!;
     const tunnel2 = this.grid.get(this.randomSelector())!;
     tunnel1.secretTunnel = tunnel2;
@@ -567,9 +581,17 @@ export class Game {
               lower: undefined,
               upper: undefined,
             };
+            const treasureRooms: Record<floors, Room | undefined> = {
+              basement: undefined,
+              lower: undefined,
+              upper: undefined,
+            };
             this.rooms = message.map!.map((r) => {
               const room = new Room(r, this);
               if (room.name === "stairs") allStairs[room.level] = room;
+              if (room.hasTreasure) treasureRooms[room.level] = room;
+              if (room.name === "dungeon") this.dungeon = room;
+              if (room.name === "entrance") this.entrance = room;
               if (r.secretTunnelId) tunnel.push(room);
               this.grid.set(
                 `${room.position.x},${room.position.y},${room.level}`,
@@ -578,6 +600,7 @@ export class Game {
               return room;
             });
             this.stairs = allStairs as Record<floors, Room>;
+            this.treasureRooms = treasureRooms as Record<floors, Room>;
             const [room1, room2] = tunnel;
             if (room1 && room2) {
               room1.secretTunnel = room2;

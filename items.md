@@ -4,7 +4,7 @@
       doors, revealing monsters and treasure
 - [x] Mirror (bedroom): Shows the location of all monsters on your level, breaks
       if you get captured
-- [ ] Thread: Shows the path back to the exit
+- [x] Thread: Shows the path back to the exit
 - [x] Crystal Ball: Permanently reveals the treasure location of the level
       you're on, can only be used once
 - [x] Jar of Spiders: allows you to set a trap to slow down opponents

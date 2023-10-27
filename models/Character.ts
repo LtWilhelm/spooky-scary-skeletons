@@ -27,7 +27,7 @@ export class Character {
 
   hasMoved = true;
 
-  gatheredTreasures: string[] = [];
+  gatheredTreasures: Room[] = [];
   knownTreasures: Room[] = [];
 
   _score = 0;
@@ -270,9 +270,9 @@ export class Character {
       }
       if (
         this.room?.hasTreasure &&
-        !this.gatheredTreasures.includes(this.room.accessor)
+        !this.gatheredTreasures.includes(this.room)
       ) {
-        this.gatheredTreasures.push(this.room.accessor);
+        this.gatheredTreasures.push(this.room);
       }
 
       if (!this.game.isHost) {

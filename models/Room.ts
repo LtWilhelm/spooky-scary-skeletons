@@ -4,7 +4,15 @@ import { Game } from "./Game.ts";
 import { direction, directions, floors, rooms } from "./index.ts";
 import { imageLibrary } from "../images.ts";
 import { Item } from "./items/Item.ts";
-import { Dice, Mirror, Quill, Skull, Spyglass, Thread } from "./items/index.ts";
+import {
+  Compass,
+  Dice,
+  Mirror,
+  Quill,
+  Skull,
+  Spyglass,
+  Thread,
+} from "./items/index.ts";
 
 type itemLoot = {
   item: new (player: Character, game: Game) => Item;
@@ -238,7 +246,7 @@ export class Room {
       case "entrance":
         return [
           {
-            item: Thread,
+            item: Compass,
             type: "item",
             weight: 1,
           },

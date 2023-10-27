@@ -1020,20 +1020,32 @@ class Item {
         });
     }
 }
-class Thread extends Item {
+class Compass extends Item {
     path;
     constructor(p, g){
-        super("Spool of Thread", Infinity, 10, p, g, `
-      Someone dropped a spool of thread.
-      It looks like one end was tied to something in a different room. Maybe you could follow it?
-      `, imageLibrary.thread);
+        super("Spectral Compass", 3, 50, p, g, `
+      The glint of this ghostly compass catches your eye.
+      The needle flickers in and out of existence. It seems to point to your desires!
+      `, imageLibrary.compass);
     }
     handler = ()=>{
-        const entrance = this.game.rooms.find((r)=>r.name === "entrance");
-        this.path = this.player.room.findPathTo(entrance, false, true);
+        const floor = this.player.room.level;
+        const target = this.player.gatheredTreasures.includes(this.game.treasureRooms[floor]) ? this.game.stairs[floor] : this.game.treasureRooms[floor];
+        this.path = this.player.room.findPathTo(target, false, true);
+        for (const __char of this.player.room.characters.values()){
+            if (__char.name !== "skeleton") {
+                this.use();
+                if (this.uses < 1) {
+                    this.onDrop();
+                    this.player.item = undefined;
+                }
+            }
+        }
     };
     onPickup() {
         super.onPickup();
+        this.player.safe = true;
+        this.player.vision = 1;
         addEventListener("playermove", this.handler);
         addEventListener("captured", this.handler);
         this.handler();
@@ -1041,22 +1053,20 @@ class Thread extends Item {
     onDrop() {
         removeEventListener("playermove", this.handler);
         removeEventListener("captured", this.handler);
+        this.player.safe = false;
+        this.player.vision = 0;
     }
     render() {
         super.render();
         if (this.path) {
-            const path = this.path;
-            doodler.deferDrawing(()=>{
-                doodler.drawScaled(10, ()=>{
-                    let prev = new Vector(this.player.room.position.x, this.player.room.position.y).mult(32).add(16, 16);
-                    for (const step of path.filter((r)=>r.level === this.player.room.level)){
-                        const next = new Vector(step.position.x, step.position.y).mult(32).add(16, 16);
-                        doodler.line(prev, next, {
-                            color: "red"
-                        });
-                        prev = next;
-                    }
-                });
+            const center = new Vector(0, this.game.gridSize.y).mult(32).add(8, 7);
+            const [current, next] = this.path;
+            if (!current || !next) return;
+            const dir = new Vector(next.position.x, next.position.y).sub(current.position.x, current.position.y);
+            dir.setMag(4);
+            doodler.line(center, center.copy().add(dir), {
+                color: "lime",
+                weight: .8
             });
         }
     }
@@ -1281,8 +1291,8 @@ class Character {
             } else {
                 this.room = this.room.neighbors[dir];
             }
-            if (this.room?.hasTreasure && !this.gatheredTreasures.includes(this.room.accessor)) {
-                this.gatheredTreasures.push(this.room.accessor);
+            if (this.room?.hasTreasure && !this.gatheredTreasures.includes(this.room)) {
+                this.gatheredTreasures.push(this.room);
             }
             if (!this.game.isHost) {
                 this.game?.render();
@@ -1799,7 +1809,7 @@ class Room {
             case "entrance":
                 return [
                     {
-                        item: Thread,
+                        item: Compass,
                         type: "item",
                         weight: 1
                     }
@@ -2096,7 +2106,7 @@ class Game {
         y: 6
     };
     grid = new Map();
-    entrance = {
+    entranceD = {
         x: 0,
         y: 0
     };
@@ -2111,9 +2121,17 @@ class Game {
     };
     skeletonCount = 3;
     stairs;
+    dungeon;
+    entrance;
+    treasureRooms;
     generate = ()=>{
         let solvable = false;
         const allStairs = {
+            upper: undefined,
+            lower: undefined,
+            basement: undefined
+        };
+        const treasureRooms = {
             upper: undefined,
             lower: undefined,
             basement: undefined
@@ -2159,6 +2177,7 @@ class Game {
                         level: floor
                     }, this);
                     this.grid.set(`${dungeonX},${dungeonY},${floor}`, dungeon);
+                    this.dungeon = dungeon;
                 }
                 if (floor === "lower") {
                     let entranceX;
@@ -2179,10 +2198,11 @@ class Game {
                     entrance.itemChance = 1;
                     entrance.known = true;
                     this.grid.set(`${entranceX},${entranceY},${floor}`, entrance);
-                    this.entrance = {
+                    this.entranceD = {
                         x: entranceX,
                         y: entranceY
                     };
+                    this.entrance = entrance;
                 }
                 for(let x = 0; x < this.gridSize.x; x++){
                     for(let y = 0; y < this.gridSize.y; y++){
@@ -2220,11 +2240,13 @@ class Game {
                     treasureRoom = this.grid.get(this.randomSelector(floor));
                 }
                 treasureRoom.hasTreasure = true;
+                treasureRooms[floor] = treasureRoom;
             }
             for (const room of this.grid.values())this.rooms.push(room);
             solvable = solver(this.rooms);
         }
         this.stairs = allStairs;
+        this.treasureRooms = treasureRooms;
         const tunnel1 = this.grid.get(this.randomSelector("basement"));
         const tunnel2 = this.grid.get(this.randomSelector());
         tunnel1.secretTunnel = tunnel2;
@@ -2523,14 +2545,23 @@ class Game {
                                 lower: undefined,
                                 upper: undefined
                             };
+                            const treasureRooms = {
+                                basement: undefined,
+                                lower: undefined,
+                                upper: undefined
+                            };
                             this.rooms = message.map.map((r)=>{
                                 const room = new Room(r, this);
                                 if (room.name === "stairs") allStairs[room.level] = room;
+                                if (room.hasTreasure) treasureRooms[room.level] = room;
+                                if (room.name === "dungeon") this.dungeon = room;
+                                if (room.name === "entrance") this.entrance = room;
                                 if (r.secretTunnelId) tunnel.push(room);
                                 this.grid.set(`${room.position.x},${room.position.y},${room.level}`, room);
                                 return room;
                             });
                             this.stairs = allStairs;
+                            this.treasureRooms = treasureRooms;
                             const [room1, room2] = tunnel;
                             if (room1 && room2) {
                                 room1.secretTunnel = room2;
