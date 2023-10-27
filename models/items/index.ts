@@ -6,3 +6,4 @@ export { SpiderJar } from "./SpiderJar.ts";
 export { Lantern } from "./Lantern.ts";
 export { Hourglass } from "./Hourglass.ts";
 export { Dice } from "./Dice.ts";
+export { Quill } from "./Quill.ts";

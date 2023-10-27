@@ -141,6 +141,9 @@ export class Character {
           case "b":
             this.item?.use();
             break;
+          case "d":
+            this.move("secret");
+            break;
 
           default:
             this.move(dir as direction);
@@ -182,20 +185,22 @@ export class Character {
       if (dir === "b" && this.item?.usable) {
         b.disabled = false;
       }
+      if (dir === "d" && this.room.tunnelKnown) {
+        b.classList.remove("hidden");
+        b.disabled = false;
+      }
 
-      if (this.hasMoved) b.disabled = true;
+      if (this.hasMoved) {
+        switch (dir) {
+          case "d":
+            b.classList.add("hidden");
+            break;
+
+          default:
+            b.disabled = true;
+        }
+      }
     });
-
-    if (this.room.secretTunnel && this.room.tunnelKnown) {
-      const buttons = document.querySelector(".buttons");
-      const button = document.createElement("button");
-      button.addEventListener("click", () => {
-        this.move("secret");
-      });
-      button.dataset.dir = "d";
-      button.textContent = "SECRET TUNNEL";
-      buttons?.append(button);
-    }
   };
 
   // This is going to need a massive overhaul when the ghost AI is added
@@ -260,11 +265,12 @@ export class Character {
       }
 
       this.game?.render();
-      !this.game?.isHost && this.game?.channel?.send(JSON.stringify({
+      !this.game.isHost && this.game.sendMessage({
         action: "move",
         playerId: this.uuid,
         direction: dir,
-      }));
+        roomId: this.room.uuid,
+      });
       this.game!.floor = this.room?.level || this.game!.floor;
     } else {
       const validSpaces = this.validSpaces;

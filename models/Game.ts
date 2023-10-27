@@ -431,6 +431,10 @@ export class Game {
         }
         case "move": {
           const c = this.characters.get(message.playerId)!;
+          if (message.direction === "secret") {
+            const room = this.rooms.find((r) => r.uuid === message.roomId);
+            c.room = room || c.room;
+          }
           c.move(message.direction!);
           this.checkPlayerMoves();
           this.sendRoom(c.room.uuid, c.uuid);
@@ -748,7 +752,7 @@ interface socketPacket {
   playerName?: string;
   roomId?: string;
   charsInRoom?: string[];
-  direction?: direction | "up" | "down" | "search";
+  direction?: direction | "up" | "down" | "search" | "secret";
   map?: Partial<Room>[];
   score?: number;
   safe?: boolean;

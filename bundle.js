@@ -1019,26 +1019,29 @@ class Item {
         });
     }
 }
-class Dice extends Item {
+class Quill extends Item {
     constructor(p, g){
-        super("Cursed Dice", Infinity, 0, p, g, `
-      The dice on the gaming table glow a sinister red.
-      Are you feeling lucky?
-      `, imageLibrary.dice);
+        super("Ethereal Quill", 1, 30, p, g, `
+      A ghostly quill floats above the desk.
+      Maybe you could use it draw a door?
+      `, imageLibrary.quill);
     }
-    handler = (e)=>{
-        console.log("scord doubled", e.detail);
-        this.player.addPoints(e.detail);
-        this.game.sendMessage({
-            action: "dice",
-            playerId: this.player.uuid
-        });
-    };
-    onPickup() {
-        addEventListener("score", this.handler);
+    get usable() {
+        return !!this.uses && !this.player.room.secretTunnel;
     }
-    onDrop() {
-        removeEventListener("score", this.handler);
+    use() {
+        if (!super.use()) return false;
+        while(!this.player.room.secretTunnel){
+            const room = this.game.grid.get(this.game.randomSelector(this.player.room.level));
+            if (!room.secretTunnel) {
+                room.secretTunnel = this.player.room;
+                this.player.room.secretTunnel = room;
+            }
+        }
+        this.player.room.tunnelKnown = true;
+        this.player.room.secretTunnel.tunnelKnown = true;
+        this.player.item = undefined;
+        return true;
     }
 }
 class Character {
@@ -1163,6 +1166,9 @@ class Character {
                     case "b":
                         this.item?.use();
                         break;
+                    case "d":
+                        this.move("secret");
+                        break;
                     default:
                         this.move(dir);
                 }
@@ -1191,18 +1197,20 @@ class Character {
             if (dir === "b" && this.item?.usable) {
                 b.disabled = false;
             }
-            if (this.hasMoved) b.disabled = true;
+            if (dir === "d" && this.room.tunnelKnown) {
+                b.classList.remove("hidden");
+                b.disabled = false;
+            }
+            if (this.hasMoved) {
+                switch(dir){
+                    case "d":
+                        b.classList.add("hidden");
+                        break;
+                    default:
+                        b.disabled = true;
+                }
+            }
         });
-        if (this.room.secretTunnel && this.room.tunnelKnown) {
-            const buttons = document.querySelector(".buttons");
-            const button = document.createElement("button");
-            button.addEventListener("click", ()=>{
-                this.move("secret");
-            });
-            button.dataset.dir = "d";
-            button.textContent = "SECRET TUNNEL";
-            buttons?.append(button);
-        }
     };
     move = (dir)=>{
         this.roomPosition = new Vector(Math.floor(Math.random() * 26), Math.floor(Math.random() * 24));
@@ -1253,11 +1261,12 @@ class Character {
                 this.gatheredTreasures.push(this.room.accessor);
             }
             this.game?.render();
-            !this.game?.isHost && this.game?.channel?.send(JSON.stringify({
+            !this.game.isHost && this.game.sendMessage({
                 action: "move",
                 playerId: this.uuid,
-                direction: dir
-            }));
+                direction: dir,
+                roomId: this.room.uuid
+            });
             this.game.floor = this.room?.level || this.game.floor;
         } else {
             const validSpaces = this.validSpaces;
@@ -1748,7 +1757,7 @@ class Room {
             case "entrance":
                 return [
                     {
-                        item: Dice,
+                        item: Quill,
                         type: "item",
                         weight: 1
                     }
@@ -1775,7 +1784,7 @@ class Room {
     tunnelKnown = false;
     search() {
         this.hasBeenSearched = true;
-        if (this.secretTunnel) {
+        if (this.secretTunnel && !this.tunnelKnown) {
             this.tunnelKnown = true;
             this.secretTunnel.tunnelKnown = true;
             this.game.alert(this.tunnelMessage, 5000);
@@ -2216,6 +2225,10 @@ class Game {
                 case "move":
                     {
                         const c = this.characters.get(message.playerId);
+                        if (message.direction === "secret") {
+                            const room = this.rooms.find((r)=>r.uuid === message.roomId);
+                            c.room = room || c.room;
+                        }
                         c.move(message.direction);
                         this.checkPlayerMoves();
                         this.sendRoom(c.room.uuid, c.uuid);
@@ -2509,6 +2522,7 @@ const join = ()=>{
   <button class="movement" data-dir="down">Down</button>
   <button class="movement" data-dir="c">Search</button>
   <button class="movement" data-dir="b">Use Item</button>
+  <button class="movement" data-dir="d">SECRET TUNNEL</button>
   `;
 };
 const host = ()=>{
