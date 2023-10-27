@@ -1213,7 +1213,7 @@ class Character {
             }
         });
     };
-    move = (dir)=>{
+    move(dir, target) {
         this.roomPosition = new Vector(Math.floor(Math.random() * 26), Math.floor(Math.random() * 24));
         if (dir && this.room.trapCount && dir !== "search" && !this.game.isHost) {
             this.room === this.room;
@@ -1255,6 +1255,8 @@ class Character {
                 this.room === this.room;
             } else if (dir === "secret") {
                 this.room = this.room.secretTunnel || this.room;
+            } else if (dir === "nav") {
+                this.room = target;
             } else {
                 this.room = this.room.neighbors[dir];
             }
@@ -1280,9 +1282,10 @@ class Character {
             detail: this
         });
         dispatchEvent(moveEvent);
-    };
+    }
     searchRoom = ()=>{};
     roomPosition;
+    path;
     render() {
         if (!this.room) return;
         const startPos = new Vector(this.room.position.x * 32, this.room.position.y * 32);
@@ -1315,6 +1318,21 @@ class Character {
                 doodler.drawImageWithOutline(this.image, startPos.copy().add(this.roomPosition).mult(scale), {
                     weight: 6,
                     color: "purple"
+                });
+            });
+        }
+        if (this.path && this.game.isHost) {
+            const path = this.path;
+            doodler.deferDrawing(()=>{
+                doodler.drawScaled(10, ()=>{
+                    let prev = new Vector(this.room.position.x, this.room.position.y).mult(32).add(16, 16);
+                    for (const step of path.filter((r)=>r.level === this.room.level)){
+                        const next = new Vector(step.position.x, step.position.y).mult(32).add(16, 16);
+                        doodler.line(prev, next, {
+                            color: "red"
+                        });
+                        prev = next;
+                    }
                 });
             });
         }
@@ -1925,6 +1943,122 @@ class Room {
         const roomVec = new Vector(room.position.x, room.position.y);
         return thisVec.dist(roomVec);
     }
+    findPathTo(targetRoom, includeDiagonal = false, includeSecretTunnel = false) {
+        const openSet = [
+            this
+        ];
+        const cameFrom = {};
+        const gScore = {
+            [this.getKey()]: 0
+        };
+        const fScore = {
+            [this.getKey()]: this.heuristic(targetRoom, includeDiagonal)
+        };
+        while(openSet.length > 0){
+            const current = this.getMinFScoreRoom(openSet, fScore);
+            if (current === targetRoom) {
+                return this.reconstructPath(cameFrom, current);
+            }
+            openSet.splice(openSet.indexOf(current), 1);
+            const neighbors = current.getNeighbors(includeDiagonal, includeSecretTunnel);
+            for (const neighbor of neighbors){
+                const tentativeGScore = gScore[current.getKey()] + this.distance(current, neighbor, includeDiagonal);
+                if (!gScore[neighbor.getKey()] || tentativeGScore < gScore[neighbor.getKey()]) {
+                    cameFrom[neighbor.getKey()] = current;
+                    gScore[neighbor.getKey()] = tentativeGScore;
+                    fScore[neighbor.getKey()] = tentativeGScore + neighbor.heuristic(targetRoom, includeDiagonal);
+                    if (openSet.indexOf(neighbor) === -1) {
+                        openSet.push(neighbor);
+                    }
+                }
+            }
+        }
+        return null;
+    }
+    getNeighbors(includeDiagonal, includeSecretTunnel) {
+        const neighbors = [];
+        for (const door of this.doors){
+            const neighbor = this.neighbors[door];
+            if (!neighbor) continue;
+            neighbors.push(neighbor);
+            if (includeDiagonal) {
+                let doors;
+                switch(door){
+                    case "north":
+                    case "south":
+                        doors = [
+                            "east",
+                            "west"
+                        ];
+                        break;
+                    case "east":
+                    case "west":
+                        doors = [
+                            "north",
+                            "south"
+                        ];
+                        break;
+                }
+                doors = doors.filter((d)=>neighbor.doors.includes(d));
+                for (const door of doors){
+                    const diagonal = neighbor.neighbors[door];
+                    if (!diagonal) continue;
+                    neighbors.push(diagonal);
+                }
+            }
+        }
+        if (this.name === "stairs") {
+            let stairs = this.game.rooms.filter((r)=>r.name === "stairs");
+            switch(this.level){
+                case "upper":
+                case "basement":
+                    stairs = stairs.filter((s)=>s.level === "lower");
+                    break;
+                case "lower":
+                    stairs = stairs.filter((s)=>s.level !== "lower");
+                    break;
+            }
+            neighbors.push(...stairs);
+        }
+        if (includeSecretTunnel && this.secretTunnel) {
+            neighbors.push(this.secretTunnel);
+        }
+        return Array.from(new Set(neighbors));
+    }
+    getMinFScoreRoom(openSet, fScore) {
+        let minRoom = openSet[0];
+        for (const room of openSet){
+            if (fScore[room.getKey()] < fScore[minRoom.getKey()]) {
+                minRoom = room;
+            }
+        }
+        return minRoom;
+    }
+    reconstructPath(cameFrom, current) {
+        const path = [
+            current
+        ];
+        while(cameFrom[current.getKey()] && current !== this){
+            current = cameFrom[current.getKey()];
+            path.unshift(current);
+        }
+        return path;
+    }
+    distance(room1, room2, includeDiagonal) {
+        if (room1.name === "stairs" && room2.name === "stairs") return 1;
+        return includeDiagonal ? new Vector(room1.position.x, room1.position.y, Room.FloorZ[room1.level]).dist(new Vector(room2.position.x, room2.position.y, Room.FloorZ[room2.level])) : Math.abs(room1.position.x - room2.position.x) + Math.abs(room1.position.y - room2.position.y) + Math.abs(Room.FloorZ[room1.level] - Room.FloorZ[room1.level]);
+    }
+    static FloorZ = {
+        basement: 0,
+        lower: 1,
+        upper: 2
+    };
+    heuristic(targetRoom, includeDiagonal) {
+        return targetRoom.level === this.level ? this.distance(this, targetRoom, includeDiagonal) : this.distance(this, this.game.stairs[this.level], includeDiagonal);
+    }
+    getKey() {
+        return `${this.position.x}-${this.position.y}-${Room.FloorZ[this.level]}`;
+    }
 }
 const floors = [
     'basement',
@@ -1953,9 +2087,15 @@ class Game {
         this.render();
     };
     skeletonCount = 3;
+    stairs;
     generate = ()=>{
         let solvable = false;
-        this.skeletonCount = Number(prompt("How many skeletons?") || "0");
+        const allStairs = {
+            upper: undefined,
+            lower: undefined,
+            basement: undefined
+        };
+        this.skeletonCount = Number(prompt("How many skeletons?") || "1");
         while(!solvable){
             const floors = [
                 "basement",
@@ -1976,6 +2116,7 @@ class Game {
                     },
                     level: floor
                 }, this);
+                allStairs[floor] = stairs;
                 this.grid.set(`${stairX},${stairY},${floor}`, stairs);
                 if (floor === "basement") {
                     let spaceIsOccupied = false;
@@ -2060,6 +2201,7 @@ class Game {
             for (const room of this.grid.values())this.rooms.push(room);
             solvable = solver(this.rooms);
         }
+        this.stairs = allStairs;
         const tunnel1 = this.grid.get(this.randomSelector("basement"));
         const tunnel2 = this.grid.get(this.randomSelector());
         tunnel1.secretTunnel = tunnel2;
@@ -2239,7 +2381,14 @@ class Game {
                             const room = this.rooms.find((r)=>r.uuid === message.roomId);
                             c.room = room || c.room;
                         }
-                        c.move(message.direction);
+                        let target;
+                        if (message.direction === "nav") {
+                            target = this.rooms.find((r)=>r.uuid === message.roomId);
+                            if (!target) break;
+                            c.move("nav", target);
+                        } else {
+                            c.move(message.direction);
+                        }
                         this.checkPlayerMoves();
                         this.sendRoom(c.room.uuid, c.uuid);
                         break;

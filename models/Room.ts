@@ -468,4 +468,164 @@ export class Room {
     const roomVec = new Vector(room.position.x, room.position.y);
     return thisVec.dist(roomVec);
   }
+
+  findPathTo(
+    targetRoom: Room,
+    includeDiagonal = false,
+    includeSecretTunnel = false,
+  ): Room[] | null {
+    // A* algorithm implementation
+    const openSet: Room[] = [this];
+    const cameFrom: { [key: string]: Room | null } = {};
+    const gScore: { [key: string]: number } = { [this.getKey()]: 0 };
+    const fScore: { [key: string]: number } = {
+      [this.getKey()]: this.heuristic(targetRoom, includeDiagonal),
+    };
+
+    while (openSet.length > 0) {
+      const current = this.getMinFScoreRoom(openSet, fScore);
+
+      if (current === targetRoom) {
+        return this.reconstructPath(cameFrom, current);
+      }
+
+      openSet.splice(openSet.indexOf(current), 1);
+
+      const neighbors = current.getNeighbors(
+        includeDiagonal,
+        includeSecretTunnel,
+      );
+      for (const neighbor of neighbors) {
+        const tentativeGScore = gScore[current.getKey()] +
+          this.distance(current, neighbor, includeDiagonal);
+
+        if (
+          !gScore[neighbor.getKey()] ||
+          tentativeGScore < gScore[neighbor.getKey()]
+        ) {
+          cameFrom[neighbor.getKey()] = current;
+          gScore[neighbor.getKey()] = tentativeGScore;
+          fScore[neighbor.getKey()] = tentativeGScore +
+            neighbor.heuristic(targetRoom, includeDiagonal);
+
+          if (openSet.indexOf(neighbor) === -1) {
+            openSet.push(neighbor);
+          }
+        }
+      }
+    }
+
+    return null; // No path found
+  }
+
+  private getNeighbors(
+    includeDiagonal: boolean,
+    includeSecretTunnel: boolean,
+  ): Room[] {
+    const neighbors: Room[] = [];
+    for (const door of this.doors) {
+      const neighbor = this.neighbors[door];
+      if (!neighbor) continue;
+      neighbors.push(neighbor);
+      if (includeDiagonal) {
+        let doors: direction[];
+        switch (door) {
+          case "north":
+          case "south":
+            doors = ["east", "west"];
+            break;
+          case "east":
+          case "west":
+            doors = ["north", "south"];
+            break;
+        }
+
+        doors = doors.filter((d) => neighbor.doors.includes(d));
+
+        for (const door of doors) {
+          const diagonal = neighbor.neighbors[door];
+          if (!diagonal) continue;
+          neighbors.push(diagonal);
+        }
+      }
+    }
+    if (this.name === "stairs") {
+      let stairs = this.game.rooms.filter((r) => r.name === "stairs");
+      switch (this.level) {
+        case "upper":
+        case "basement":
+          stairs = stairs.filter((s) => s.level === "lower");
+          break;
+        case "lower":
+          stairs = stairs.filter((s) => s.level !== "lower");
+          break;
+      }
+      neighbors.push(...stairs);
+    }
+    if (includeSecretTunnel && this.secretTunnel) {
+      neighbors.push(this.secretTunnel);
+    }
+    return Array.from(new Set(neighbors));
+  }
+
+  private getMinFScoreRoom(
+    openSet: Room[],
+    fScore: { [key: string]: number },
+  ): Room {
+    // Find the room in openSet with the minimum fScore
+    let minRoom = openSet[0];
+    for (const room of openSet) {
+      if (fScore[room.getKey()] < fScore[minRoom.getKey()]) {
+        minRoom = room;
+      }
+    }
+    return minRoom;
+  }
+
+  private reconstructPath(
+    cameFrom: { [key: string]: Room | null },
+    current: Room,
+  ): Room[] {
+    // Reconstruct the path from the cameFrom dictionary
+    const path: Room[] = [current];
+    while (cameFrom[current.getKey()] && current !== this) {
+      current = cameFrom[current.getKey()]!;
+      path.unshift(current);
+    }
+    return path;
+  }
+
+  private distance(room1: Room, room2: Room, includeDiagonal: boolean): number {
+    if (room1.name === "stairs" && room2.name === "stairs") return 1;
+
+    return includeDiagonal
+      ? new Vector(room1.position.x, room1.position.y, Room.FloorZ[room1.level])
+        .dist(
+          new Vector(
+            room2.position.x,
+            room2.position.y,
+            Room.FloorZ[room2.level],
+          ),
+        )
+      : Math.abs(room1.position.x - room2.position.x) +
+        Math.abs(room1.position.y - room2.position.y) +
+        Math.abs(Room.FloorZ[room1.level] - Room.FloorZ[room1.level]);
+  }
+
+  static FloorZ: Record<floors, number> = {
+    basement: 0,
+    lower: 1,
+    upper: 2,
+  };
+
+  private heuristic(targetRoom: Room, includeDiagonal: boolean): number {
+    // Placeholder for heuristic calculation, replace with actual logic
+    return targetRoom.level === this.level
+      ? this.distance(this, targetRoom, includeDiagonal)
+      : this.distance(this, this.game.stairs[this.level], includeDiagonal);
+  }
+
+  private getKey(): string {
+    return `${this.position.x}-${this.position.y}-${Room.FloorZ[this.level]}`;
+  }
 }

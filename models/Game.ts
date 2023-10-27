@@ -35,9 +35,16 @@ export class Game {
 
   skeletonCount = 3;
 
+  stairs!: Record<floors, Room>;
+
   generate = () => {
     let solvable = false;
-    this.skeletonCount = Number(prompt("How many skeletons?") || "0");
+    const allStairs: Record<floors, Room | undefined> = {
+      upper: undefined,
+      lower: undefined,
+      basement: undefined,
+    };
+    this.skeletonCount = Number(prompt("How many skeletons?") || "1");
     while (!solvable) {
       const floors: floors[] = ["basement", "lower", "upper"];
       this.grid = new Map();
@@ -51,6 +58,8 @@ export class Game {
           position: { x: stairX, y: stairY },
           level: floor,
         }, this);
+
+        allStairs[floor] = stairs;
 
         this.grid.set(`${stairX},${stairY},${floor}`, stairs);
 
@@ -144,6 +153,7 @@ export class Game {
       for (const room of this.grid.values()) this.rooms.push(room);
       solvable = solver(this.rooms);
     }
+    this.stairs = allStairs as Record<floors, Room>;
     const tunnel1 = this.grid.get(this.randomSelector("basement"))!;
     const tunnel2 = this.grid.get(this.randomSelector())!;
     tunnel1.secretTunnel = tunnel2;
@@ -435,7 +445,14 @@ export class Game {
             const room = this.rooms.find((r) => r.uuid === message.roomId);
             c.room = room || c.room;
           }
-          c.move(message.direction!);
+          let target: Room | undefined;
+          if (message.direction === "nav") {
+            target = this.rooms.find((r) => r.uuid === message.roomId);
+            if (!target) break;
+            c.move("nav", target);
+          } else {
+            c.move(message.direction!);
+          }
           this.checkPlayerMoves();
           this.sendRoom(c.room.uuid, c.uuid);
           break;
@@ -752,7 +769,7 @@ interface socketPacket {
   playerName?: string;
   roomId?: string;
   charsInRoom?: string[];
-  direction?: direction | "up" | "down" | "search" | "secret";
+  direction?: direction | "up" | "down" | "search" | "secret" | "nav";
   map?: Partial<Room>[];
   score?: number;
   safe?: boolean;

@@ -12,7 +12,7 @@
       room and the adjacent ones.
 - [x] Spectral Quill (Study): Allows you to draw a temporary door, creating a
       one-time shortcut to another room on the same floor. One time use
-- [ ] Cursed Portrait (Alcoves): When uncovered, this painting reveals hidden
+- [x] Cursed Portrait (Alcoves): When uncovered, this painting reveals hidden
       passages within the alcoves, giving you secret routes to explore.
 - [x] Hourglass: freezes all monsters for one turn. One time use
 - [ ] Music box: Attracts skeletons to the room it's used in for 3 turns. 3 uses

@@ -204,7 +204,12 @@ export class Character {
   };
 
   // This is going to need a massive overhaul when the ghost AI is added
-  move = (dir?: direction | "up" | "down" | "search" | "secret") => {
+  move(dir: "nav", target: Room): void;
+  move(dir?: direction | "up" | "down" | "search" | "secret"): void;
+  move(
+    dir?: direction | "up" | "down" | "search" | "secret" | "nav",
+    target?: Room,
+  ) {
     this.roomPosition = new Vector(
       Math.floor(Math.random() * 26),
       Math.floor(Math.random() * 24),
@@ -254,6 +259,8 @@ export class Character {
         this.room === this.room;
       } else if (dir === "secret") {
         this.room = this.room.secretTunnel || this.room;
+      } else if (dir === "nav") {
+        this.room = target!;
       } else {
         this.room = this.room!.neighbors[dir]!;
       }
@@ -284,12 +291,14 @@ export class Character {
     }
     const moveEvent = new CustomEvent("playermove", { detail: this });
     dispatchEvent(moveEvent);
-  };
+  }
 
   searchRoom = () => {
   };
 
   roomPosition: Vector;
+
+  path?: Room[] | null;
 
   render() {
     if (!this.room) return;
@@ -347,6 +356,29 @@ export class Character {
           startPos.copy().add(this.roomPosition).mult(scale),
           { weight: 6, color: "purple" },
         );
+      });
+    }
+
+    if (this.path && this.game.isHost) {
+      const path = this.path;
+      doodler.deferDrawing(() => {
+        doodler.drawScaled(10, () => {
+          let prev = new Vector(this.room.position.x, this.room.position.y)
+            .mult(
+              32,
+            ).add(16, 16);
+          for (
+            const step of path.filter((r) => r.level === this.room.level)
+          ) {
+            const next = new Vector(step.position.x, step.position.y).mult(32)
+              .add(
+                16,
+                16,
+              );
+            doodler.line(prev, next, { color: "red" });
+            prev = next;
+          }
+        });
       });
     }
   }
