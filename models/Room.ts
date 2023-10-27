@@ -141,6 +141,12 @@ export class Room {
           ? imageLibrary.stairsDoor
           : imageLibrary.basementStairsDoor;
         break;
+      case "study":
+        this.image = imageLibrary.study;
+        break;
+      case "game room":
+        this.image = imageLibrary.gameRoom;
+        break;
     }
     this.rotation = this.name === "entrance"
       ? 0

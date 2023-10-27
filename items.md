@@ -19,7 +19,7 @@
 - [x] Cursed dice (game room): Has 50/50 chance of teleporting a random skeleton
       to you or an opponent when you search a room. Points gained while
       searching are doubled
-- [ ] Spectral Compass: Points towards the treasure on this floor. If the
+- [x] Spectral Compass: Points towards the treasure on this floor. If the
       treasure has been collected, points to the stairs instead. Shows nearby
       skeletons and prevents you from being captured 3 times, at which point it
       breaks.

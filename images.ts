@@ -42,6 +42,10 @@ const basementDoor = new Image();
 basementDoor.src = "./assets/images/rooms/basement door.png";
 const window = new Image();
 window.src = "./assets/images/rooms/window.png";
+const study = new Image();
+study.src = "./assets/images/rooms/study.png";
+const gameRoom = new Image();
+gameRoom.src = "./assets/images/rooms/game room.png";
 
 const treasure = new Image();
 treasure.src = "./assets/images/treasure.png";
@@ -125,4 +129,6 @@ export const imageLibrary = {
   spyglass,
   thread,
   tunnel,
+  study,
+  gameRoom,
 };

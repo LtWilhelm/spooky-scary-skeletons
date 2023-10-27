@@ -866,6 +866,10 @@ const basementDoor = new Image();
 basementDoor.src = "./assets/images/rooms/basement door.png";
 const window1 = new Image();
 window1.src = "./assets/images/rooms/window.png";
+const study = new Image();
+study.src = "./assets/images/rooms/study.png";
+const gameRoom = new Image();
+gameRoom.src = "./assets/images/rooms/game room.png";
 const treasure = new Image();
 treasure.src = "./assets/images/treasure.png";
 const explorer = new Image();
@@ -944,7 +948,9 @@ const imageLibrary = {
     spiders,
     spyglass,
     thread,
-    tunnel
+    tunnel,
+    study,
+    gameRoom
 };
 class Item {
     name;
@@ -1608,61 +1614,74 @@ const recursiveSearch = (current, last, target)=>{
 };
 const rooms = [
     {
-        name: 'bedroom',
+        name: "bedroom",
         floors: [
-            'upper'
+            "upper"
         ]
     },
     {
-        name: 'hallway',
+        name: "hallway",
         floors: [
-            'upper',
-            'lower',
-            'basement'
+            "upper",
+            "lower",
+            "basement"
         ]
     },
     {
-        name: 'dining room',
+        name: "dining room",
         floors: [
-            'lower'
+            "lower"
         ]
     },
     {
-        name: 'parlor',
+        name: "parlor",
         floors: [
-            'lower',
-            'upper'
+            "lower",
+            "upper"
         ]
     },
     {
-        name: 'library',
+        name: "library",
         floors: [
-            'lower',
-            'upper'
+            "lower",
+            "upper"
         ]
     },
     {
-        name: 'cellar',
+        name: "study",
         floors: [
-            'basement'
+            "lower",
+            "upper"
         ]
     },
     {
-        name: 'catacomb',
+        name: "game room",
         floors: [
-            'basement'
+            "lower"
         ]
     },
     {
-        name: 'alcoves',
+        name: "cellar",
         floors: [
-            'basement'
+            "basement"
+        ]
+    },
+    {
+        name: "catacomb",
+        floors: [
+            "basement"
+        ]
+    },
+    {
+        name: "alcoves",
+        floors: [
+            "basement"
         ]
     }
 ];
 const directions = [
-    'north',
-    'south',
+    "north",
+    "south",
     "east",
     "west"
 ];
@@ -1749,6 +1768,12 @@ class Room {
                         break;
                 }
                 this.doorImage = this.level !== "basement" ? imageLibrary.stairsDoor : imageLibrary.basementStairsDoor;
+                break;
+            case "study":
+                this.image = imageLibrary.study;
+                break;
+            case "game room":
+                this.image = imageLibrary.gameRoom;
                 break;
         }
         this.rotation = this.name === "entrance" ? 0 : 2 * Math.PI * (Math.floor(Math.random() * 4) / 4);
@@ -2094,9 +2119,9 @@ class Room {
     }
 }
 const floors = [
-    'basement',
-    'lower',
-    'upper'
+    "basement",
+    "lower",
+    "upper"
 ];
 class Game {
     rooms = [];
