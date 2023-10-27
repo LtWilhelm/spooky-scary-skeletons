@@ -1016,40 +1016,26 @@ class Item {
         });
     }
 }
-class Hourglass extends Item {
+class Dice extends Item {
     constructor(p, g){
-        super("Bone-sand Hourglass", 2, 30, p, g, `
-      The sound of sand draws your attention to an hourglass.
-      The irregular, bone-colored sand seems to last just long enough for you to move between rooms.
-      Highlights nearby skeletons while held and for 5 turns after using.
-      `, imageLibrary.hourglass);
+        super("Cursed Dice", Infinity, 0, p, g, `
+      The dice on the gaming table glow a sinister red.
+      Are you feeling lucky?
+      `, imageLibrary.dice);
     }
-    sandDrops = 5;
-    handleMove = (e)=>{
-        console.log("player moved");
-        console.log(this.player);
-        if (e.detail === this.player && !this.sandDrops--) this.onDrop();
-    };
-    onPickup() {
-        this.player.vision = 1;
-    }
-    onDrop() {
-        this.player.vision = 0;
-        this.player.item = undefined;
-    }
-    use() {
-        if (!this.uses) return false;
+    handler = (e)=>{
+        console.log("scord doubled", e.detail);
+        this.player.addPoints(e.detail);
         this.game.sendMessage({
-            action: "freeze",
+            action: "dice",
             playerId: this.player.uuid
         });
-        if (this.uses === 1) {
-            addEventListener("playermove", this.handleMove);
-        }
-        return super.use();
+    };
+    onPickup() {
+        addEventListener("score", this.handler);
     }
-    get usable() {
-        return !!this.uses;
+    onDrop() {
+        removeEventListener("score", this.handler);
     }
 }
 class Character {
@@ -1074,7 +1060,23 @@ class Character {
     hasMoved = true;
     gatheredTreasures = [];
     knownTreasures = [];
-    score = 0;
+    _score = 0;
+    get score() {
+        return this._score;
+    }
+    addPoints(s, doubleable) {
+        this._score += s;
+        if (doubleable) {
+            dispatchEvent(new CustomEvent("score", {
+                detail: s
+            }));
+        }
+        this.game.sendMessage({
+            action: "score",
+            score: this.score,
+            playerId: this.uuid
+        });
+    }
     image;
     canSeeTraps = false;
     _safe = false;
@@ -1096,6 +1098,7 @@ class Character {
     sight = 0;
     item;
     frozen = 0;
+    teleportLocation;
     constructor(name, game){
         this.name = name;
         this.uuid = window.crypto.randomUUID();
@@ -1242,9 +1245,10 @@ class Character {
             this.game.floor = this.room?.level || this.game.floor;
         } else {
             const validSpaces = this.validSpaces;
-            this.room = this.room.trapCount || this.frozen ? this.room : validSpaces[Math.floor(Math.random() * validSpaces.length)][1];
+            this.room = this.room.trapCount || this.frozen ? this.room : this.teleportLocation || validSpaces[Math.floor(Math.random() * validSpaces.length)][1];
             this.room.trapCount && this.room.trapCount--;
             this.frozen && this.frozen--;
+            this.teleportLocation = undefined;
         }
         const moveEvent = new CustomEvent("playermove", {
             detail: this
@@ -1619,7 +1623,7 @@ class Room {
         this.image = new Image(32, 32);
         this.doorImage = new Image(32, 32);
         this.game = g;
-        this.itemChance = Math.max(0, Math.random() - .5);
+        this.itemChance = 1;
         this.doorImage = this.level === "basement" ? imageLibrary.basementDoor : imageLibrary.door;
         switch(this.name){
             case "hallway":
@@ -1723,26 +1727,23 @@ class Room {
     }
     get lootTable() {
         switch(this.name){
-            case "hallway":
-            case "stairs":
-            case "dining room":
-            case "bedroom":
-            case "parlor":
-            case "library":
-            case "cellar":
-            case "dungeon":
             case "entrance":
                 return [
                     {
-                        item: Hourglass,
+                        item: Dice,
                         type: "item",
                         weight: 1
                     }
                 ];
-            case "catacomb":
-            case "alcoves":
         }
-        return [];
+        return [
+            {
+                type: "points",
+                name: "Golden Banana",
+                value: 20,
+                weight: 1
+            }
+        ];
     }
     hasBeenSearched = false;
     search() {
@@ -1757,7 +1758,17 @@ class Room {
             const loot = loots[Math.floor(Math.random() * loots.length)];
             switch(loot.type){
                 case "points":
-                    break;
+                    {
+                        this.game.character?.addPoints(loot.value, true);
+                        const prev = this.game.dialog.innerHTML;
+                        this.game.dialog.innerHTML = `You found ${loot.name} worth ${loot.value} points!`;
+                        this.game.dialog.showModal();
+                        setTimeout(()=>{
+                            this.game.dialog.close();
+                            this.game.dialog.innerHTML = prev || "";
+                        }, 3000);
+                        break;
+                    }
                 case "item":
                     new loot.item(this.game.character, this.game);
                     break;
@@ -2040,6 +2051,9 @@ class Game {
                         fillColor: "white",
                         textBaseline: "top"
                     });
+                    doodler.fillText("Score " + this.character?.score, treasureStart.copy().add(48, 2), 44, {
+                        fillColor: "white"
+                    });
                 });
             });
         }
@@ -2181,7 +2195,7 @@ class Game {
                     {
                         const __char = this.characters.get(message.playerId);
                         if (!__char) break;
-                        __char.score += message.score || 0;
+                        __char._score = message.score || 0;
                         break;
                     }
                 case "safe":
@@ -2205,6 +2219,15 @@ class Game {
                             skel.frozen += 3;
                         }
                         break;
+                    }
+                case "dice":
+                    {
+                        const skellies = Array.from(this.characters.values()).filter((c)=>c.name === "skeleton");
+                        const skelly = skellies[Math.floor(Math.random() * skellies.length)];
+                        if (Math.random() < .3) {
+                            const players = Array.from(this.characters.values()).filter((c)=>c.name !== "ghost" && c.name !== "skeleton");
+                            skelly.teleportLocation = players[Math.floor(Math.random() * players.length)].room;
+                        }
                     }
             }
         });

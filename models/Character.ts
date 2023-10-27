@@ -30,7 +30,21 @@ export class Character {
   gatheredTreasures: string[] = [];
   knownTreasures: Room[] = [];
 
-  score = 0;
+  _score = 0;
+  get score() {
+    return this._score;
+  }
+  addPoints(s: number, doubleable?: boolean) {
+    this._score += s;
+    if (doubleable) {
+      dispatchEvent(new CustomEvent<number>("score", { detail: s }));
+    }
+    this.game.sendMessage({
+      action: "score",
+      score: this.score,
+      playerId: this.uuid,
+    });
+  }
   image: HTMLImageElement;
 
   canSeeTraps = false;
@@ -56,6 +70,8 @@ export class Character {
   item?: Item;
 
   frozen = 0;
+
+  teleportLocation?: Room;
 
   constructor(name: string, game: Game) {
     this.name = name;
@@ -238,9 +254,11 @@ export class Character {
       const validSpaces = this.validSpaces;
       this.room = this.room.trapCount || this.frozen
         ? this.room
-        : validSpaces[Math.floor(Math.random() * validSpaces.length)]![1]!;
+        : this.teleportLocation ||
+          validSpaces[Math.floor(Math.random() * validSpaces.length)]![1]!;
       this.room.trapCount && (this.room.trapCount--);
       this.frozen && (this.frozen--);
+      this.teleportLocation = undefined;
     }
     const moveEvent = new CustomEvent("playermove", { detail: this });
     dispatchEvent(moveEvent);

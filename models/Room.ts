@@ -4,11 +4,7 @@ import { Game } from "./Game.ts";
 import { direction, directions, floors, rooms } from "./index.ts";
 import { imageLibrary } from "../images.ts";
 import { Item } from "./items/Item.ts";
-import { Mirror, Skull, Spyglass } from "./items/index.ts";
-import { CrystalBall } from "./items/CrystalBall.ts";
-import { SpiderJar } from "./items/SpiderJar.ts";
-import { Lantern } from "./items/Lantern.ts";
-import { Hourglass } from "./items/Hourglass.ts";
+import { Dice, Mirror, Skull, Spyglass } from "./items/index.ts";
 
 type itemLoot = {
   item: new (player: Character, game: Game) => Item;
@@ -75,7 +71,8 @@ export class Room {
 
     this.game = g;
 
-    this.itemChance = Math.max(0, Math.random() - .5);
+    // this.itemChance = Math.max(0, Math.random() - .5);
+    this.itemChance = 1;
 
     this.doorImage = this.level === "basement"
       ? imageLibrary.basementDoor
@@ -227,26 +224,31 @@ export class Room {
 
   get lootTable(): loot[] {
     switch (this.name) {
-      case "hallway":
-      case "stairs":
-      case "dining room":
-      case "bedroom":
-      case "parlor":
-      case "library":
-      case "cellar":
-      case "dungeon":
+      // case "hallway":
+      // case "stairs":
+      // case "dining room":
+      // case "bedroom":
+      // case "parlor":
+      // case "library":
+      // case "cellar":
+      // case "dungeon":
       case "entrance":
         return [
           {
-            item: Hourglass,
+            item: Dice,
             type: "item",
             weight: 1,
           },
         ];
-      case "catacomb":
-      case "alcoves":
+        // case "catacomb":
+        // case "alcoves":
     }
-    return [];
+    return [{
+      type: "points",
+      name: "Golden Banana",
+      value: 20,
+      weight: 1,
+    }];
   }
 
   hasBeenSearched = false;
@@ -264,9 +266,18 @@ export class Room {
       const loot = loots[Math.floor(Math.random() * loots.length)];
 
       switch (loot.type) {
-        case "points":
-          // todo: handle scoring
+        case "points": {
+          this.game.character?.addPoints(loot.value, true);
+          const prev = this.game.dialog.innerHTML;
+          this.game.dialog.innerHTML =
+            `You found ${loot.name} worth ${loot.value} points!`;
+          this.game.dialog.showModal();
+          setTimeout(() => {
+            this.game.dialog.close();
+            this.game.dialog.innerHTML = prev || "";
+          }, 3000);
           break;
+        }
         case "item":
           new loot.item(this.game.character!, this.game);
           break;

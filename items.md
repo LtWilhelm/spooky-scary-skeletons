@@ -14,9 +14,9 @@
       one-time shortcut to another room on the same floor. One time use
 - [ ] Cursed Portrait (Alcoves): When uncovered, this painting reveals hidden
       passages within the alcoves, giving you secret routes to explore.
-- [X] Hourglass: freezes all monsters for one turn. One time use
+- [x] Hourglass: freezes all monsters for one turn. One time use
 - [ ] Music box: Attracts skeletons to the room it's used in for 3 turns. 3 uses
-- [ ] Cursed dice (game room): Has 50/50 chance of teleporting a random skeleton
+- [x] Cursed dice (game room): Has 50/50 chance of teleporting a random skeleton
       to you or an opponent when you search a room. Points gained while
       searching are doubled
 - [ ] Spectral Compass: Points towards the treasure on this floor. If the

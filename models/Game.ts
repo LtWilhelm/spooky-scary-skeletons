@@ -223,6 +223,13 @@ export class Game {
               textBaseline: "top",
             },
           );
+
+          doodler.fillText(
+            "Score " + this.character?.score,
+            treasureStart.copy().add(48, 2),
+            44,
+            { fillColor: "white" },
+          );
         });
       });
     }
@@ -436,7 +443,7 @@ export class Game {
         case "score": {
           const char = this.characters.get(message.playerId);
           if (!char) break;
-          char.score += message.score || 0;
+          char._score = message.score || 0;
           break;
         }
         case "safe": {
@@ -457,6 +464,19 @@ export class Game {
             skel.frozen += 3;
           }
           break;
+        }
+        case "dice": {
+          const skellies = Array.from(this.characters.values()).filter((c) =>
+            c.name === "skeleton"
+          );
+          const skelly = skellies[Math.floor(Math.random() * skellies.length)];
+          if (Math.random() < .3) {
+            const players = Array.from(this.characters.values()).filter((c) =>
+              c.name !== "ghost" && c.name !== "skeleton"
+            );
+            skelly.teleportLocation =
+              players[Math.floor(Math.random() * players.length)].room;
+          }
         }
       }
     });
@@ -685,6 +705,7 @@ interface socketPacket {
     | "safe"
     | "trap"
     | "freeze"
+    | "dice"
     | "score";
   playerId: string;
   playerName?: string;
