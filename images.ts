@@ -54,6 +54,8 @@ ghost.src = "./assets/images/ghost.png";
 
 const trap = new Image();
 trap.src = "./assets/images/trap.png";
+const tunnel = new Image();
+tunnel.src = "./assets/images/tunnel.png";
 
 const compass = new Image();
 compass.src = "./assets/images/items/compass.png";
@@ -122,4 +124,5 @@ export const imageLibrary = {
   spiders,
   spyglass,
   thread,
+  tunnel,
 };

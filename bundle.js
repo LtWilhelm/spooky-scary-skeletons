@@ -876,6 +876,8 @@ const ghost = new Image();
 ghost.src = "./assets/images/ghost.png";
 const trap = new Image();
 trap.src = "./assets/images/trap.png";
+const tunnel = new Image();
+tunnel.src = "./assets/images/tunnel.png";
 const compass = new Image();
 compass.src = "./assets/images/items/compass.png";
 const dice = new Image();
@@ -941,7 +943,8 @@ const imageLibrary = {
     skull,
     spiders,
     spyglass,
-    thread
+    thread,
+    tunnel
 };
 class Item {
     name;
@@ -1099,6 +1102,7 @@ class Character {
     item;
     frozen = 0;
     teleportLocation;
+    seesTunnels = false;
     constructor(name, game){
         this.name = name;
         this.uuid = window.crypto.randomUUID();
@@ -1189,6 +1193,16 @@ class Character {
             }
             if (this.hasMoved) b.disabled = true;
         });
+        if (this.room.secretTunnel && this.room.tunnelKnown) {
+            const buttons = document.querySelector(".buttons");
+            const button = document.createElement("button");
+            button.addEventListener("click", ()=>{
+                this.move("secret");
+            });
+            button.dataset.dir = "d";
+            button.textContent = "SECRET TUNNEL";
+            buttons?.append(button);
+        }
     };
     move = (dir)=>{
         this.roomPosition = new Vector(Math.floor(Math.random() * 26), Math.floor(Math.random() * 24));
@@ -1230,6 +1244,8 @@ class Character {
                 this.room = this.game?.rooms.find((r)=>r.name === "stairs" && r.level === options[dir][currentLevel]);
             } else if (dir === "search") {
                 this.room === this.room;
+            } else if (dir === "secret") {
+                this.room = this.room.secretTunnel || this.room;
             } else {
                 this.room = this.room.neighbors[dir];
             }
@@ -1613,6 +1629,8 @@ class Room {
     image;
     doorImage;
     itemChance;
+    secretTunnel;
+    secretTunnelId;
     constructor(r, g){
         this.level = r.level;
         this.name = r.name;
@@ -1746,9 +1764,22 @@ class Room {
         ];
     }
     hasBeenSearched = false;
+    get tunnelMessage() {
+        switch(this.name){
+            case "library":
+                return "You try to pull a book off of a shelf, but it catches on something and the whole bookcase swings to reveal a passageway.";
+            default:
+                return "A hidden door! I wonder where it leads?";
+        }
+    }
+    tunnelKnown = false;
     search() {
         this.hasBeenSearched = true;
-        if (Math.random() < this.itemChance) {
+        if (this.secretTunnel) {
+            this.tunnelKnown = true;
+            this.secretTunnel.tunnelKnown = true;
+            this.game.alert(this.tunnelMessage, 5000);
+        } else if (Math.random() < this.itemChance) {
             const loots = [];
             for (const loot of this.lootTable){
                 for(let i = 0; i < loot.weight; i++){
@@ -1861,6 +1892,14 @@ class Room {
                 doodler.drawImage(imageLibrary.trap, point.mult(2));
             });
         }
+        if ((this.game.isHost || this.known && this.tunnelKnown || this.game.character?.seesTunnels) && this.secretTunnel) {
+            doodler.drawScaled(.5, ()=>{
+                doodler.drawImageWithOutline(imageLibrary.tunnel, new Vector(this.position.x, this.position.y).mult(64).add(3, 3), {
+                    weight: 6,
+                    color: "white"
+                });
+            });
+        }
     }
     calculateDistanceToRoom(room) {
         const thisVec = new Vector(this.position.x, this.position.y);
@@ -1897,7 +1936,7 @@ class Game {
     skeletonCount = 3;
     generate = ()=>{
         let solvable = false;
-        this.skeletonCount = Number(prompt("How many skeletons?") || "3");
+        this.skeletonCount = Number(prompt("How many skeletons?") || "0");
         while(!solvable){
             const floors = [
                 "basement",
@@ -2002,6 +2041,10 @@ class Game {
             for (const room of this.grid.values())this.rooms.push(room);
             solvable = solver(this.rooms);
         }
+        const tunnel1 = this.grid.get(this.randomSelector("basement"));
+        const tunnel2 = this.grid.get(this.randomSelector());
+        tunnel1.secretTunnel = tunnel2;
+        tunnel2.secretTunnel = tunnel1;
     };
     init = ()=>{
         const rooms = Array.from(this.grid.values()).sort((a)=>{
@@ -2160,7 +2203,8 @@ class Game {
                                 position: r.position,
                                 hasTreasure: r.hasTreasure,
                                 doors: r.doors,
-                                uuid: r.uuid
+                                uuid: r.uuid,
+                                secretTunnelId: r.secretTunnel?.uuid
                             }));
                         this.channel?.send(JSON.stringify({
                             action: "map",
@@ -2286,11 +2330,18 @@ class Game {
                 case "map":
                     {
                         if (!this.rooms.length) {
+                            const tunnel = [];
                             this.rooms = message.map.map((r)=>{
                                 const room = new Room(r, this);
+                                if (r.secretTunnelId) tunnel.push(room);
                                 this.grid.set(`${room.position.x},${room.position.y},${room.level}`, room);
                                 return room;
                             });
+                            const [room1, room2] = tunnel;
+                            if (room1 && room2) {
+                                room1.secretTunnel = room2;
+                                room2.secretTunnel = room1;
+                            }
                             this.character.room = this.rooms.find((r)=>r.name === "entrance");
                             this.character.room.itemChance = 1;
                             console.log("initing");
@@ -2411,6 +2462,23 @@ class Game {
     channel;
     sendMessage(p) {
         this.channel?.send(JSON.stringify(p));
+    }
+    alertTimer;
+    alert(message, time) {
+        const prev = this.dialog.innerHTML || "";
+        if (typeof message === "string") {
+            this.dialog.innerHTML = message;
+        } else {
+            this.dialog.append(message);
+        }
+        this.dialog.showModal();
+        if (time) {
+            clearTimeout(this.alertTimer);
+            this.alertTimer = setTimeout(()=>{
+                this.dialog.close();
+                this.dialog.innerHTML = prev;
+            }, time);
+        }
     }
 }
 const game = new Game();

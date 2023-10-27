@@ -37,7 +37,7 @@ export class Game {
 
   generate = () => {
     let solvable = false;
-    this.skeletonCount = Number(prompt("How many skeletons?") || "3");
+    this.skeletonCount = Number(prompt("How many skeletons?") || "0");
     while (!solvable) {
       const floors: floors[] = ["basement", "lower", "upper"];
       this.grid = new Map();
@@ -144,6 +144,10 @@ export class Game {
       for (const room of this.grid.values()) this.rooms.push(room);
       solvable = solver(this.rooms);
     }
+    const tunnel1 = this.grid.get(this.randomSelector("basement"))!;
+    const tunnel2 = this.grid.get(this.randomSelector())!;
+    tunnel1.secretTunnel = tunnel2;
+    tunnel2.secretTunnel = tunnel1;
   };
 
   init = () => {
@@ -416,6 +420,7 @@ export class Game {
             hasTreasure: r.hasTreasure,
             doors: r.doors,
             uuid: r.uuid,
+            secretTunnelId: r.secretTunnel?.uuid,
           }));
           this.channel?.send(JSON.stringify({
             action: "map",
@@ -545,14 +550,21 @@ export class Game {
       switch (message.action) {
         case "map": {
           if (!this.rooms.length) {
+            const tunnel: Room[] = [];
             this.rooms = message.map!.map((r) => {
               const room = new Room(r, this);
+              if (r.secretTunnelId) tunnel.push(room);
               this.grid.set(
                 `${room.position.x},${room.position.y},${room.level}`,
                 room,
               );
               return room;
             });
+            const [room1, room2] = tunnel;
+            if (room1 && room2) {
+              room1.secretTunnel = room2;
+              room2.secretTunnel = room1;
+            }
             this.character!.room = this.rooms.find((r) =>
               r.name === "entrance"
             )!;
@@ -692,6 +704,27 @@ export class Game {
 
   sendMessage(p: socketPacket) {
     this.channel?.send(JSON.stringify(p));
+  }
+
+  alertTimer?: number;
+
+  alert(message: string | HTMLElement, time?: number) {
+    const prev = this.dialog.innerHTML || "";
+    if (typeof message === "string") {
+      this.dialog.innerHTML = message;
+    } else {
+      this.dialog.append(message);
+    }
+
+    this.dialog.showModal();
+
+    if (time) {
+      clearTimeout(this.alertTimer);
+      this.alertTimer = setTimeout(() => {
+        this.dialog.close();
+        this.dialog.innerHTML = prev;
+      }, time);
+    }
   }
 }
 

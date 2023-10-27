@@ -57,6 +57,9 @@ export class Room {
 
   itemChance: number;
 
+  secretTunnel?: Room;
+  secretTunnelId?: string;
+
   constructor(r: Partial<Room>, g: Game) {
     this.level = r.level!;
     this.name = r.name!;
@@ -253,9 +256,22 @@ export class Room {
 
   hasBeenSearched = false;
 
+  get tunnelMessage() {
+    switch (this.name) {
+      case "library":
+        return "You try to pull a book off of a shelf, but it catches on something and the whole bookcase swings to reveal a passageway.";
+      default:
+        return "A hidden door! I wonder where it leads?";
+    }
+  }
+  tunnelKnown = false;
   search() {
     this.hasBeenSearched = true;
-    if (Math.random() < this.itemChance) {
+    if (this.secretTunnel) {
+      this.tunnelKnown = true;
+      this.secretTunnel.tunnelKnown = true;
+      this.game.alert(this.tunnelMessage, 5000);
+    } else if (Math.random() < this.itemChance) {
       const loots = [];
       for (const loot of this.lootTable) {
         for (let i = 0; i < loot.weight; i++) {
@@ -417,6 +433,20 @@ export class Room {
       );
       doodler.drawScaled(.5, () => {
         doodler.drawImage(imageLibrary.trap, point.mult(2));
+      });
+    }
+
+    if (
+      (this.game.isHost ||
+        (this.known && this.tunnelKnown) ||
+        this.game.character?.seesTunnels) && this.secretTunnel
+    ) {
+      doodler.drawScaled(.5, () => {
+        doodler.drawImageWithOutline(
+          imageLibrary.tunnel,
+          new Vector(this.position.x, this.position.y).mult(64).add(3, 3),
+          { weight: 6, color: "white" },
+        );
       });
     }
   }

@@ -73,6 +73,8 @@ export class Character {
 
   teleportLocation?: Room;
 
+  seesTunnels = false;
+
   constructor(name: string, game: Game) {
     this.name = name;
     this.uuid = window.crypto.randomUUID();
@@ -183,14 +185,26 @@ export class Character {
 
       if (this.hasMoved) b.disabled = true;
     });
+
+    if (this.room.secretTunnel && this.room.tunnelKnown) {
+      const buttons = document.querySelector(".buttons");
+      const button = document.createElement("button");
+      button.addEventListener("click", () => {
+        this.move("secret");
+      });
+      button.dataset.dir = "d";
+      button.textContent = "SECRET TUNNEL";
+      buttons?.append(button);
+    }
   };
 
   // This is going to need a massive overhaul when the ghost AI is added
-  move = (dir?: direction | "up" | "down" | "search") => {
+  move = (dir?: direction | "up" | "down" | "search" | "secret") => {
     this.roomPosition = new Vector(
       Math.floor(Math.random() * 26),
       Math.floor(Math.random() * 24),
     );
+
     if (dir && this.room.trapCount && dir !== "search" && !this.game.isHost) {
       this.room === this.room;
       this.room.trapCount -= 1;
@@ -233,6 +247,8 @@ export class Character {
         )!;
       } else if (dir === "search") {
         this.room === this.room;
+      } else if (dir === "secret") {
+        this.room = this.room.secretTunnel || this.room;
       } else {
         this.room = this.room!.neighbors[dir]!;
       }
