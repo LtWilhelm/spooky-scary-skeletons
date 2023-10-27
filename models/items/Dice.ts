@@ -19,7 +19,6 @@ export class Dice extends Item {
   }
 
   handler = (e: CustomEvent<number>) => {
-    console.log("scord doubled", e.detail);
     this.player.addPoints(e.detail);
     this.game.sendMessage({
       action: "dice",

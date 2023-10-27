@@ -1020,29 +1020,45 @@ class Item {
         });
     }
 }
-class Quill extends Item {
+class Thread extends Item {
+    path;
     constructor(p, g){
-        super("Ethereal Quill", 1, 30, p, g, `
-      A ghostly quill floats above the desk.
-      Maybe you could use it draw a door?
-      `, imageLibrary.quill);
+        super("Spool of Thread", Infinity, 10, p, g, `
+      Someone dropped a spool of thread.
+      It looks like one end was tied to something in a different room. Maybe you could follow it?
+      `, imageLibrary.thread);
     }
-    get usable() {
-        return !!this.uses && !this.player.room.secretTunnel;
+    handler = ()=>{
+        const entrance = this.game.rooms.find((r)=>r.name === "entrance");
+        this.path = this.player.room.findPathTo(entrance, false, true);
+    };
+    onPickup() {
+        super.onPickup();
+        addEventListener("playermove", this.handler);
+        addEventListener("captured", this.handler);
+        this.handler();
     }
-    use() {
-        if (!super.use()) return false;
-        while(!this.player.room.secretTunnel){
-            const room = this.game.grid.get(this.game.randomSelector(this.player.room.level));
-            if (!room.secretTunnel) {
-                room.secretTunnel = this.player.room;
-                this.player.room.secretTunnel = room;
-            }
+    onDrop() {
+        removeEventListener("playermove", this.handler);
+        removeEventListener("captured", this.handler);
+    }
+    render() {
+        super.render();
+        if (this.path) {
+            const path = this.path;
+            doodler.deferDrawing(()=>{
+                doodler.drawScaled(10, ()=>{
+                    let prev = new Vector(this.player.room.position.x, this.player.room.position.y).mult(32).add(16, 16);
+                    for (const step of path.filter((r)=>r.level === this.player.room.level)){
+                        const next = new Vector(step.position.x, step.position.y).mult(32).add(16, 16);
+                        doodler.line(prev, next, {
+                            color: "red"
+                        });
+                        prev = next;
+                    }
+                });
+            });
         }
-        this.player.room.tunnelKnown = true;
-        this.player.room.secretTunnel.tunnelKnown = true;
-        this.player.item = undefined;
-        return true;
     }
 }
 class Character {
@@ -1168,8 +1184,13 @@ class Character {
                         this.item?.use();
                         break;
                     case "d":
-                        this.move("secret");
-                        break;
+                        {
+                            this.move("secret");
+                            const audio = new Audio();
+                            audio.src = "./assets/sounds/secrettunnel.mp3";
+                            audio.play();
+                            break;
+                        }
                     default:
                         this.move(dir);
                 }
@@ -1263,14 +1284,16 @@ class Character {
             if (this.room?.hasTreasure && !this.gatheredTreasures.includes(this.room.accessor)) {
                 this.gatheredTreasures.push(this.room.accessor);
             }
-            this.game?.render();
-            !this.game.isHost && this.game.sendMessage({
-                action: "move",
-                playerId: this.uuid,
-                direction: dir,
-                roomId: this.room.uuid
-            });
-            this.game.floor = this.room?.level || this.game.floor;
+            if (!this.game.isHost) {
+                this.game?.render();
+                this.game.sendMessage({
+                    action: "move",
+                    playerId: this.uuid,
+                    direction: dir,
+                    roomId: this.room.uuid
+                });
+                this.game.floor = this.room?.level || this.game.floor;
+            }
         } else {
             const validSpaces = this.validSpaces;
             this.room = this.room.trapCount || this.frozen ? this.room : this.teleportLocation || validSpaces[Math.floor(Math.random() * validSpaces.length)][1];
@@ -1776,7 +1799,7 @@ class Room {
             case "entrance":
                 return [
                     {
-                        item: Quill,
+                        item: Thread,
                         type: "item",
                         weight: 1
                     }
@@ -2020,7 +2043,7 @@ class Room {
             }
             neighbors.push(...stairs);
         }
-        if (includeSecretTunnel && this.secretTunnel) {
+        if (includeSecretTunnel && this.secretTunnel && this.tunnelKnown) {
             neighbors.push(this.secretTunnel);
         }
         return Array.from(new Set(neighbors));
@@ -2223,9 +2246,6 @@ class Game {
             return posA.y - posB.y;
         });
         document.querySelectorAll(".floor").forEach((f)=>f.innerHTML = "");
-        for (const __char of this.characters.values()){
-            console.log(__char.name, __char.room);
-        }
         for (const room of rooms){
             const floor = document.querySelector(`.floor#${room.level}`);
             const div = document.createElement("div");
@@ -2298,7 +2318,6 @@ class Game {
             if (character.name !== "skeleton") {
                 skellies: for (const skeleton of skeletons){
                     if (skeleton.frozen) continue skellies;
-                    console.log(skeleton.frozen);
                     if (!character.safe && character.room === skeleton.room) {
                         character.room = this.rooms.find((r)=>r.name === "dungeon");
                         this.channel?.send(JSON.stringify({
@@ -2344,9 +2363,6 @@ class Game {
         this.init();
         const channelId = "spooky_scary_skeletons";
         await this.puppet.createChannel(channelId);
-        this.puppet.on("ping", (e)=>{
-            console.log(e);
-        });
         this.puppet.joinChannel(channelId, (msg)=>{
             const message = JSON.parse(msg);
             switch(message.action){
@@ -2380,10 +2396,9 @@ class Game {
                         if (message.direction === "secret") {
                             const room = this.rooms.find((r)=>r.uuid === message.roomId);
                             c.room = room || c.room;
-                        }
-                        let target;
-                        if (message.direction === "nav") {
-                            target = this.rooms.find((r)=>r.uuid === message.roomId);
+                            c.hasMoved = true;
+                        } else if (message.direction === "nav") {
+                            const target = this.rooms.find((r)=>r.uuid === message.roomId);
                             if (!target) break;
                             c.move("nav", target);
                         } else {
@@ -2503,12 +2518,19 @@ class Game {
                     {
                         if (!this.rooms.length) {
                             const tunnel = [];
+                            const allStairs = {
+                                basement: undefined,
+                                lower: undefined,
+                                upper: undefined
+                            };
                             this.rooms = message.map.map((r)=>{
                                 const room = new Room(r, this);
+                                if (room.name === "stairs") allStairs[room.level] = room;
                                 if (r.secretTunnelId) tunnel.push(room);
                                 this.grid.set(`${room.position.x},${room.position.y},${room.level}`, room);
                                 return room;
                             });
+                            this.stairs = allStairs;
                             const [room1, room2] = tunnel;
                             if (room1 && room2) {
                                 room1.secretTunnel = room2;
@@ -2516,7 +2538,6 @@ class Game {
                             }
                             this.character.room = this.rooms.find((r)=>r.name === "entrance");
                             this.character.room.itemChance = 1;
-                            console.log("initing");
                             this.render();
                             this.init();
                         }
@@ -2526,8 +2547,8 @@ class Game {
                     {
                         if (this.character?.uuid === message.playerId && !this.character.safe) {
                             const event = new CustomEvent("captured");
-                            dispatchEvent(event);
                             this.character.room = this.rooms.find((r)=>r.name === "dungeon");
+                            dispatchEvent(event);
                             this.dialog?.showModal();
                             setTimeout(()=>{
                                 this.dialog?.close();

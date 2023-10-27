@@ -22,7 +22,6 @@ export class Hourglass extends Item {
   sandDrops = 5;
 
   handleMove = (e: CustomEvent) => {
-    console.log(this.player);
     if ((e.detail === this.player) && !this.sandDrops--) this.onDrop();
   };
 

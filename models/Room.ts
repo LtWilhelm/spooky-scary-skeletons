@@ -4,7 +4,7 @@ import { Game } from "./Game.ts";
 import { direction, directions, floors, rooms } from "./index.ts";
 import { imageLibrary } from "../images.ts";
 import { Item } from "./items/Item.ts";
-import { Dice, Mirror, Quill, Skull, Spyglass } from "./items/index.ts";
+import { Dice, Mirror, Quill, Skull, Spyglass, Thread } from "./items/index.ts";
 
 type itemLoot = {
   item: new (player: Character, game: Game) => Item;
@@ -238,7 +238,7 @@ export class Room {
       case "entrance":
         return [
           {
-            item: Quill,
+            item: Thread,
             type: "item",
             weight: 1,
           },
@@ -562,7 +562,7 @@ export class Room {
       }
       neighbors.push(...stairs);
     }
-    if (includeSecretTunnel && this.secretTunnel) {
+    if (includeSecretTunnel && this.secretTunnel && this.tunnelKnown) {
       neighbors.push(this.secretTunnel);
     }
     return Array.from(new Set(neighbors));

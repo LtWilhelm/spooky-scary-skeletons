@@ -180,10 +180,6 @@ export class Game {
 
     document.querySelectorAll(".floor").forEach((f) => f.innerHTML = "");
 
-    for (const char of this.characters.values()) {
-      console.log(char.name, char.room);
-    }
-
     for (const room of rooms) {
       const floor = document.querySelector(`.floor#${room.level}`);
       const div = document.createElement("div");
@@ -351,7 +347,6 @@ export class Game {
         skellies:
         for (const skeleton of skeletons) {
           if (skeleton.frozen) continue skellies;
-          console.log(skeleton.frozen);
           if (
             !character.safe &&
             character.room === skeleton.room
@@ -408,10 +403,6 @@ export class Game {
     const channelId = "spooky_scary_skeletons";
     await this.puppet.createChannel(channelId);
 
-    this.puppet.on("ping", (e) => {
-      console.log(e);
-    });
-
     this.puppet.joinChannel(channelId, (msg) => {
       const message = JSON.parse(msg) as socketPacket;
 
@@ -444,10 +435,9 @@ export class Game {
           if (message.direction === "secret") {
             const room = this.rooms.find((r) => r.uuid === message.roomId);
             c.room = room || c.room;
-          }
-          let target: Room | undefined;
-          if (message.direction === "nav") {
-            target = this.rooms.find((r) => r.uuid === message.roomId);
+            c.hasMoved = true;
+          } else if (message.direction === "nav") {
+            const target = this.rooms.find((r) => r.uuid === message.roomId);
             if (!target) break;
             c.move("nav", target);
           } else {
@@ -572,8 +562,14 @@ export class Game {
         case "map": {
           if (!this.rooms.length) {
             const tunnel: Room[] = [];
+            const allStairs: Record<floors, Room | undefined> = {
+              basement: undefined,
+              lower: undefined,
+              upper: undefined,
+            };
             this.rooms = message.map!.map((r) => {
               const room = new Room(r, this);
+              if (room.name === "stairs") allStairs[room.level] = room;
               if (r.secretTunnelId) tunnel.push(room);
               this.grid.set(
                 `${room.position.x},${room.position.y},${room.level}`,
@@ -581,6 +577,7 @@ export class Game {
               );
               return room;
             });
+            this.stairs = allStairs as Record<floors, Room>;
             const [room1, room2] = tunnel;
             if (room1 && room2) {
               room1.secretTunnel = room2;
@@ -590,7 +587,6 @@ export class Game {
               r.name === "entrance"
             )!;
             this.character!.room.itemChance = 1;
-            console.log("initing");
             this.render();
             this.init();
           }
@@ -601,8 +597,8 @@ export class Game {
             this.character?.uuid === message.playerId && !this.character.safe
           ) {
             const event = new CustomEvent("captured");
-            dispatchEvent(event);
             this.character.room = this.rooms.find((r) => r.name === "dungeon")!;
+            dispatchEvent(event);
             this.dialog?.showModal();
             setTimeout(() => {
               this.dialog?.close();

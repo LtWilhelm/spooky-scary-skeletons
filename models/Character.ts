@@ -141,9 +141,13 @@ export class Character {
           case "b":
             this.item?.use();
             break;
-          case "d":
+          case "d": {
             this.move("secret");
+            const audio = new Audio();
+            audio.src = "./assets/sounds/secrettunnel.mp3";
+            audio.play();
             break;
+          }
 
           default:
             this.move(dir as direction);
@@ -271,14 +275,17 @@ export class Character {
         this.gatheredTreasures.push(this.room.accessor);
       }
 
-      this.game?.render();
-      !this.game.isHost && this.game.sendMessage({
-        action: "move",
-        playerId: this.uuid,
-        direction: dir,
-        roomId: this.room.uuid,
-      });
-      this.game!.floor = this.room?.level || this.game!.floor;
+      if (!this.game.isHost) {
+        this.game?.render();
+        this.game.sendMessage({
+          action: "move",
+          playerId: this.uuid,
+          direction: dir,
+          roomId: this.room.uuid,
+        });
+
+        this.game!.floor = this.room?.level || this.game!.floor;
+      }
     } else {
       const validSpaces = this.validSpaces;
       this.room = this.room.trapCount || this.frozen
