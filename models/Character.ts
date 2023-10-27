@@ -323,7 +323,7 @@ export class Character {
         doodler.drawImageWithOutline(
           this.image,
           startPos.copy().add(this.roomPosition).mult(scale),
-          { weight: 4, color: "purple" },
+          { weight: 6, color: "purple" },
         );
       });
     }

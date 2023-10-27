@@ -1010,9 +1010,9 @@ class Item {
             fillColor: "#00000050"
         });
         doodler.drawImage(this.img, start.copy().add(1, 1), 10, 10);
-        doodler.fillText(this.name, start.copy().add(15, 2), 48, {
+        doodler.fillText(this.name, start.copy().add(15, 8), 48, {
             fillColor: "white",
-            textBaseline: "top"
+            textBaseline: "middle"
         });
     }
 }
@@ -1287,7 +1287,7 @@ class Character {
         } else {
             doodler.drawScaled(1 / scale, ()=>{
                 doodler.drawImageWithOutline(this.image, startPos.copy().add(this.roomPosition).mult(scale), {
-                    weight: 4,
+                    weight: 6,
                     color: "purple"
                 });
             });
@@ -2047,12 +2047,13 @@ class Game {
                     this.character?.item?.render();
                     const treasureStart = new Vector(2, this.gridSize.y).mult(32).add(2, 2);
                     doodler.drawImage(imageLibrary.treasure, treasureStart, 12, 12);
-                    doodler.fillText(this.character?.gatheredTreasures.length.toString() || "0", treasureStart.copy().add(16, 2), 16, {
+                    doodler.fillText(this.character?.gatheredTreasures.length.toString() || "0", treasureStart.copy().add(16, 6), 16, {
                         fillColor: "white",
-                        textBaseline: "top"
+                        textBaseline: "middle"
                     });
-                    doodler.fillText("Score " + this.character?.score, treasureStart.copy().add(48, 2), 44, {
-                        fillColor: "white"
+                    doodler.fillText("Score " + this.character?.score, treasureStart.copy().add(48, 6), 44, {
+                        fillColor: "white",
+                        textBaseline: "middle"
                     });
                 });
             });
@@ -2387,6 +2388,7 @@ class Game {
             framerate: 5
         }, false, (ctx)=>{
             ctx.imageSmoothingEnabled = false;
+            ctx.font = "12px spk";
         });
     };
     sendRoom(roomId, playerId) {

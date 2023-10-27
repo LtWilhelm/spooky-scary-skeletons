@@ -216,19 +216,22 @@ export class Game {
           );
           doodler.fillText(
             this.character?.gatheredTreasures.length.toString() || "0",
-            treasureStart.copy().add(16, 2),
+            treasureStart.copy().add(16, 6),
             16,
             {
               fillColor: "white",
-              textBaseline: "top",
+              textBaseline: "middle",
             },
           );
 
           doodler.fillText(
             "Score " + this.character?.score,
-            treasureStart.copy().add(48, 2),
+            treasureStart.copy().add(48, 6),
             44,
-            { fillColor: "white" },
+            {
+              fillColor: "white",
+              textBaseline: "middle",
+            },
           );
         });
       });
@@ -657,6 +660,7 @@ export class Game {
       false,
       (ctx) => {
         ctx.imageSmoothingEnabled = false;
+        ctx.font = "12px spk";
       },
     );
   };

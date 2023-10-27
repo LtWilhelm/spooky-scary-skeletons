@@ -79,9 +79,9 @@ export class Item {
     const start = new Vector(0, this.game.gridSize.y).mult(32).add(2, 2);
     doodler.fillSquare(start, 12, { fillColor: "#00000050" });
     doodler.drawImage(this.img, start.copy().add(1, 1), 10, 10);
-    doodler.fillText(this.name, start.copy().add(15, 2), 48, {
+    doodler.fillText(this.name, start.copy().add(15, 8), 48, {
       fillColor: "white",
-      textBaseline: "top",
+      textBaseline: "middle",
     });
   }
 }
