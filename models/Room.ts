@@ -319,23 +319,24 @@ export class Room {
 
   rotation: number;
 
-  drawTreasure() {
+  drawTreasure(pos: Vector) {
     doodler.drawScaled(.5, () => {
       doodler.drawImage(
         imageLibrary.treasure,
-        new Vector(this.position.x * 32, this.position.y * 32).add(20, 20)
-          .mult(
-            2,
-          ),
+        pos.add(20, 20).mult(2),
       );
     });
   }
 
-  render() {
+  getRoomPos() {
+    return new Vector(this.position.x, this.position.y);
+  }
+
+  render(offset = new Vector(0, 0)) {
     const startPos = new Vector(
-      this.position.x * 32,
-      this.position.y * 32,
-    );
+      this.position.x + offset.x,
+      this.position.y,
+    ).mult(32);
 
     if (this.known || this.game.isHost) {
       doodler.drawRotated(startPos.copy().add(16, 16), this.rotation, () => {
@@ -365,7 +366,7 @@ export class Room {
       (this.game?.player && this.characters.get(this.game.player.uuid))
     ) {
       for (const char of this.characters.values()) {
-        char.render();
+        char.render(startPos);
       }
     }
 
@@ -374,7 +375,7 @@ export class Room {
       (this.game.isHost || this.known ||
         this.game.player?.knownTreasures.includes(this))
     ) {
-      this.drawTreasure();
+      this.drawTreasure(startPos.copy());
     }
 
     if (
@@ -383,30 +384,29 @@ export class Room {
     ) {
       doodler.drawImage(
         imageLibrary.window,
-        new Vector(0, this.position.y * 32),
+        startPos,
       );
     }
 
     if (
-      this.game?.player?.vision &&
-      this.characters.get(this.game.player.uuid)
+      this.game.player?.vision &&
+      this.characters.size
     ) {
-      const rooms = this.game.rooms.filter((r) =>
-        r.level === this.level &&
-        this.calculateDistanceToRoom(r) <
-          (this.game?.player?.vision || 0) + 1
-      );
+      const roomPos = this.getRoomPos().mult(32);
       const player = this.game.player;
-      const renderables = ["skeleton", "ghost"].filter((r) =>
-        player.visionIncludesAllMonsters || r === "skeleton"
-      );
-      for (const room of rooms) {
-        if (room === this) continue;
-        for (const char of room.characters.values()) {
+
+      const distance = this.calculateDistanceToRoom(player.room);
+      if (
+        distance < player.vision && player.room !== this
+      ) {
+        const renderables = ["skeleton", "ghost"].filter((r) =>
+          player.visionIncludesAllMonsters || r === "skeleton"
+        );
+        for (const char of this.characters.values()) {
           if (!renderables.includes(char.name)) continue;
           doodler.deferDrawing(() => {
             doodler.drawScaled(10, () => {
-              char.render();
+              char.render(roomPos);
             });
           });
         }
@@ -424,11 +424,16 @@ export class Room {
           this.calculateDistanceToRoom(room) < this.game.player.sight + 1
         ) {
           const r = room;
+          const roomPos = new Vector(r.position.x, r.position.y);
+          if (this.game.isHost) {
+            roomPos.add(Room.FloorZ[r.level] * 32 * this.game.gridSize.x, 0);
+          }
+
           doodler.deferDrawing(() => {
             doodler.drawScaled(10, () => {
-              if (r.hasTreasure) r.drawTreasure();
+              if (r.hasTreasure) r.drawTreasure(roomPos.copy());
               for (const char of r.characters.values()) {
-                char.render();
+                char.render(roomPos);
               }
             });
           });
@@ -441,7 +446,7 @@ export class Room {
     if (
       this.trapCount && (this.game.isHost || this.game.player?.canSeeTraps)
     ) {
-      const point = new Vector(this.position.x * 32, this.position.y * 32).add(
+      const point = startPos.copy().add(
         2,
         22,
       );
@@ -458,7 +463,7 @@ export class Room {
       doodler.drawScaled(.5, () => {
         doodler.drawImageWithOutline(
           imageLibrary.tunnel,
-          new Vector(this.position.x, this.position.y).mult(64).add(3, 3),
+          startPos.copy().mult(2).add(3, 3),
           { weight: 6, color: "white" },
         );
       });
@@ -470,7 +475,7 @@ export class Room {
       for (const char of this.characters.values()) {
         doodler.deferDrawing(() => {
           doodler.drawScaled(10, () => {
-            char.render();
+            char.render(startPos);
           });
         });
       }

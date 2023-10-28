@@ -26,13 +26,9 @@ export class Skeleton extends Character {
     this.move("nav", room);
   }
 
-  render(): void {
-    super.render();
+  override render(startPos: Vector): void {
+    // super.render(startPos);
     const scale = 3;
-    const startPos = new Vector(
-      this.room.position.x * 32,
-      this.room.position.y * 32,
-    );
     doodler.drawScaled(1 / scale, () => {
       doodler.drawImageWithOutline(
         this.image,

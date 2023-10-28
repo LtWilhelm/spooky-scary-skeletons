@@ -55,7 +55,7 @@ export class Game {
       lower: undefined,
       basement: undefined,
     };
-    this.skeletonCount = Number(prompt("How many skeletons?") || "1");
+    this.skeletonCount = Number(prompt("How many skeletons?") || "5");
     while (!solvable) {
       const floors: floors[] = ["basement", "lower", "upper"];
       this.grid = new Map();
@@ -268,17 +268,18 @@ export class Game {
   renderDoodle = () => {
     const rooms = this.rooms;
     doodler.drawScaled(10, () => {
-      for (const room of rooms.filter((r) => r.level === this.floor)) {
-        room.render();
+      for (
+        const room of rooms.filter((r) => r.level === this.floor || this.isHost)
+      ) {
+        this.isHost
+          ? room.render(
+            new Vector(
+              Room.FloorZ[room.level] * this.gridSize.x,
+              0,
+            ),
+          )
+          : room.render();
       }
-      // if (this.isHost) {
-      // } else {
-      //   for (
-      //     const room of rooms.filter((r) => (r.level === this.floor) && r.known)
-      //   ) {
-      //     room.render();
-      //   }
-      // }
     });
   };
   render = () => {
@@ -356,9 +357,6 @@ export class Game {
 
   // TODO: This needs to be refactored now that rooms are aware of characters inside them - this should also be moved to the skeleton class when it gets created
   skeletonCheck = () => {
-    const characters = Array.from(this.characters.values());
-    const skeletons = characters.filter((c) => c.name === "skeleton");
-
     for (const character of this.players) {
       skellies:
       for (const skeleton of this.skeletons) {
@@ -405,7 +403,10 @@ export class Game {
   puppet = new Sockpuppet("wss://sockpuppet.cyborggrizzly.com");
 
   hostGame = async () => {
-    this.initDoodler("red");
+    this.initDoodler("red", {
+      height: 32 * this.gridSize.y * 10,
+      width: 32 * this.gridSize.x * 10 * 3,
+    });
     this.isHost = true;
     this.generate();
     this.init();
@@ -419,8 +420,8 @@ export class Game {
         case "join": {
           if (!message.playerName) break;
           const char = new Player(message.playerName, this);
-          char.room = this.rooms.find((r) => r.name === "entrance")!;
           char.uuid = message.playerId;
+          char.room = this.entrance;
           this.characters.set(message.playerId, char);
           this.players.push(char);
           const map = this.rooms.map((r) => ({
@@ -440,22 +441,13 @@ export class Game {
           break;
         }
         case "move": {
+          console.log("player moving");
           const c = this.characters.get(message.playerId)! as Player;
           const room = this.rooms.find((r) => r.uuid === message.roomId);
           if (!room) break;
-          c.room = room;
-          c.hasMoved = true;
-          // if (message.direction === "secret") {
-          //   const room = this.rooms.find((r) => r.uuid === message.roomId);
-          //   c.room = room || c.room;
-          //   c.hasMoved = true;
-          // } else if (message.direction === "nav") {
-          //   const target = this.rooms.find((r) => r.uuid === message.roomId);
-          //   if (!target) break;
-          //   c.move("nav", target);
-          // } else {
-          //   c.move(message.direction!);
-          // }
+          // c.room = room;
+          // c.hasMoved = true;
+          c.move("nav", room);
           this.checkPlayerMoves();
           this.sendRoom(c.room.uuid, c.uuid);
           break;
@@ -561,11 +553,17 @@ export class Game {
 
     buttons!.append(unlockButton);
 
+    for (const player of this.players) {
+      player.hasMoved = false;
+    }
     this.render();
   };
 
   joinGame = () => {
-    this.initDoodler("black", 160);
+    this.initDoodler("black", {
+      width: 32 * this.gridSize.x * 10,
+      height: 32 * this.gridSize.y * 10 + 160,
+    });
     this.isHost = false;
     const channelId = "spooky_scary_skeletons";
     this.floor = "lower";
@@ -632,6 +630,7 @@ export class Game {
             this.player?.gatheredTreasures.length === 3 &&
             this.player.room?.name === "entrance"
           ) {
+            this.player.hasWon = true;
             this.dialog!.innerHTML = `
               🎃🎃🎃<br>
               Congratulations! You have collected all of the treasures and escaped to safety!<br>
@@ -677,7 +676,18 @@ export class Game {
           for (const char of message.charsInRoom) {
             const [uuid, name] = char.split(",");
             if (uuid === this.player.uuid) continue;
-            const c = this.characters.get(uuid) || new Character(name, this);
+            let c = this.characters.get(uuid);
+            if (!c) {
+              switch (name) {
+                case "skeleton":
+                  c = new Skeleton(this.skeletons.length, this);
+                  this.skeletons.push(c as Skeleton);
+                  break;
+                default:
+                  c = new Player(name, this);
+                  break;
+              }
+            }
             c.uuid = uuid;
             this.characters.set(c.uuid, c);
             c.game = this;
@@ -697,12 +707,15 @@ export class Game {
     this.channel = this.puppet.getChannel(channelId);
   };
 
-  initDoodler = (bg: string, additionalHeight = 0) => {
+  initDoodler = (
+    bg: string,
+    { height, width }: { height: number; width: number },
+  ) => {
     if (window.doodler) return;
     initializeDoodler(
       {
-        height: 32 * 60 + additionalHeight,
-        width: 32 * 50,
+        height: height,
+        width: width,
         canvas: document.querySelector("canvas") as HTMLCanvasElement,
         bg,
         framerate: 5,

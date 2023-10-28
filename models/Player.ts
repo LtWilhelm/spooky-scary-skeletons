@@ -30,12 +30,15 @@ export class Player extends Character {
     }
   }
 
+  hasWon = false;
+
   _score = 0;
   get score() {
     return this._score;
   }
   addPoints(s: number, doubleable?: boolean) {
     this._score += s;
+    this._score = Math.max(0, this._score);
     if (doubleable) {
       dispatchEvent(new CustomEvent<number>("score", { detail: s }));
     }
@@ -101,7 +104,7 @@ export class Player extends Character {
         b.disabled = false;
       }
 
-      if (dir === "c" && !this.room.hasBeenSearched) {
+      if (dir === "c" && !this.room.hasBeenSearched && !this.hasWon) {
         b.disabled = false;
       }
       if (dir === "b" && this.item?.usable) {
@@ -151,13 +154,7 @@ export class Player extends Character {
     this.game!.floor = this.room?.level || this.game!.floor;
   }
 
-  render(): void {
-    super.render();
-    const startPos = new Vector(
-      this.room.position.x * 32,
-      this.room.position.y * 32,
-    );
-
+  render(startPos: Vector): void {
     const scale = 2;
     doodler.drawWithAlpha(this.safe ? .25 : 1, () => {
       doodler.drawScaled(1 / scale, () => {

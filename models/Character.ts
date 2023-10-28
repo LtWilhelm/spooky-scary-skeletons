@@ -3,7 +3,7 @@ import { Game } from "./Game.ts";
 import { direction } from "./index.ts";
 import { Room } from "./Room.ts";
 
-export class Character {
+export abstract class Character {
   name: string;
   uuid: string;
 
@@ -148,28 +148,25 @@ export class Character {
 
   path?: Room[] | null;
 
-  render() {
-    if (this.path && this.game.isHost) {
-      const path = this.path;
-      doodler.deferDrawing(() => {
-        doodler.drawScaled(10, () => {
-          let prev = new Vector(this.room.position.x, this.room.position.y)
-            .mult(
-              32,
-            ).add(16, 16);
-          for (
-            const step of path.filter((r) => r.level === this.room.level)
-          ) {
-            const next = new Vector(step.position.x, step.position.y).mult(32)
-              .add(
-                16,
-                16,
-              );
-            doodler.line(prev, next, { color: "red" });
-            prev = next;
-          }
-        });
-      });
-    }
-  }
+  abstract render(startVec: Vector): void;
+  //   if (this.path && this.game.isHost) {
+  //     const path = this.path;
+  //     doodler.deferDrawing(() => {
+  //       doodler.drawScaled(10, () => {
+  //         let prev = startVec.copy().add(16, 16);
+  //         for (
+  //           const step of path.filter((r) => r.level === this.room.level)
+  //         ) {
+  //           const next = new Vector(step.position.x, step.position.y).mult(32)
+  //             .add(
+  //               16,
+  //               16,
+  //             );
+  //           doodler.line(prev, next, { color: "red" });
+  //           prev = next;
+  //         }
+  //       });
+  //     });
+  //   }
+  // }
 }
