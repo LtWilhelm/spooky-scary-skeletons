@@ -2,6 +2,7 @@ import { Vector } from "doodler";
 import { Character, direction } from "./index.ts";
 import { Room } from "./Room.ts";
 import { Item } from "./items/Item.ts";
+import { audioLibrary } from "../sounds.ts";
 
 export class Player extends Character {
   gatheredTreasures: Room[] = [];
@@ -64,9 +65,7 @@ export class Player extends Character {
             break;
           case "d": {
             this.move("secret");
-            const audio = new Audio();
-            audio.src = "./assets/sounds/secrettunnel.mp3";
-            audio.play();
+            audioLibrary.secretTunnel.play();
             break;
           }
 
@@ -149,6 +148,7 @@ export class Player extends Character {
       !this.gatheredTreasures.includes(this.room)
     ) {
       this.gatheredTreasures.push(this.room);
+      audioLibrary.treasure.play();
     }
 
     this.game!.floor = this.room?.level || this.game!.floor;

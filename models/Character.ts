@@ -74,7 +74,6 @@ export abstract class Character {
     return spaces.filter((s) => !!s[1]);
   }
 
-  // This is going to need a massive overhaul when the ghost AI is added
   move(dir: "nav", target: Room): void;
   move(dir?: direction | "up" | "down" | "search" | "secret"): void;
   move(
@@ -82,7 +81,6 @@ export abstract class Character {
     target?: Room,
   ) {
     this.randomizeRoomPosition();
-
     if (dir && this.room.trapCount && dir !== "search" && !this.game.isHost) {
       this.room === this.room;
       this.room.trapCount -= 1;

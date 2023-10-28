@@ -10,6 +10,7 @@ import { Vector } from "https://git.cyborggrizzly.com/emma/doodler/raw/tag/0.0.9
 import { imageLibrary } from "../images.ts";
 import { Skeleton } from "./Skeleton.ts";
 import { Player } from "./Player.ts";
+import { playRandom } from "../sounds.ts";
 
 export class Game {
   rooms: Room[] = [];
@@ -615,6 +616,7 @@ export class Game {
           if (
             this.player?.uuid === message.playerId && !this.player.safe
           ) {
+            playRandom("spookyLaugh1", "spookyLaugh2");
             const event = new CustomEvent("captured");
             this.player.room = this.rooms.find((r) => r.name === "dungeon")!;
             dispatchEvent(event);

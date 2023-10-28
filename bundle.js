@@ -2,6 +2,32 @@
 // deno-lint-ignore-file
 // This code was bundled using `deno bundle` and it's not recommended to edit it manually
 
+const secretTunnel = new Audio();
+secretTunnel.src = "./assets/sounds/secrettunnel.mp3";
+const musicBox = new Audio();
+musicBox.src = "./assets/sounds/musicBox.mp3";
+const spookyLaugh1 = new Audio();
+spookyLaugh1.src = "./assets/sounds/spookyLaugh1.mp3";
+const spookyLaugh2 = new Audio();
+spookyLaugh2.src = "./assets/sounds/spookyLaugh2.mp3";
+const treasure = new Audio();
+treasure.src = "./assets/sounds/treasure.mp3";
+const spookyDrone1 = new Audio();
+spookyDrone1.src = "./assets/sounds/spookyDrone1.mp3";
+const spookyDrone2 = new Audio();
+spookyDrone2.src = "./assets/sounds/spookyDrone2.mp3";
+const audioLibrary = {
+    secretTunnel,
+    musicBox,
+    spookyLaugh1,
+    spookyLaugh2,
+    treasure,
+    spookyDrone1,
+    spookyDrone2
+};
+function playRandom(...keys) {
+    audioLibrary[keys[Math.floor(Math.random() * keys.length)]].play();
+}
 const Constants = {
     TWO_PI: Math.PI * 2
 };
@@ -870,8 +896,8 @@ const study = new Image();
 study.src = "./assets/images/rooms/study.png";
 const gameRoom = new Image();
 gameRoom.src = "./assets/images/rooms/game room.png";
-const treasure = new Image();
-treasure.src = "./assets/images/treasure.png";
+const treasure1 = new Image();
+treasure1.src = "./assets/images/treasure.png";
 const explorer = new Image();
 explorer.src = "./assets/images/explorer.png";
 const skeleton = new Image();
@@ -906,8 +932,8 @@ const thread = new Image();
 thread.src = "./assets/images/items/thread.png";
 const crystalBall = new Image();
 crystalBall.src = "./assets/images/items/crystal ball.png";
-const musicBox = new Image();
-musicBox.src = "./assets/images/items/music box.png";
+const musicBox1 = new Image();
+musicBox1.src = "./assets/images/items/music box.png";
 const imageLibrary = {
     hallway,
     basementHallway,
@@ -929,7 +955,7 @@ const imageLibrary = {
     basementStairsDoor,
     door,
     basementDoor,
-    treasure,
+    treasure: treasure1,
     explorer,
     skeleton,
     ghost,
@@ -941,7 +967,7 @@ const imageLibrary = {
     hourglass,
     lantern,
     mirror,
-    musicBox,
+    musicBox: musicBox1,
     painting,
     quill,
     skull,
@@ -1982,9 +2008,7 @@ class Player extends Character {
                     case "d":
                         {
                             this.move("secret");
-                            const audio = new Audio();
-                            audio.src = "./assets/sounds/secrettunnel.mp3";
-                            audio.play();
+                            audioLibrary.secretTunnel.play();
                             break;
                         }
                     default:
@@ -2042,6 +2066,7 @@ class Player extends Character {
         });
         if (this.room?.hasTreasure && !this.gatheredTreasures.includes(this.room)) {
             this.gatheredTreasures.push(this.room);
+            audioLibrary.treasure.play();
         }
         this.game.floor = this.room?.level || this.game.floor;
     }
@@ -2564,6 +2589,7 @@ class Game {
                 case "captured":
                     {
                         if (this.player?.uuid === message.playerId && !this.player.safe) {
+                            playRandom("spookyLaugh1", "spookyLaugh2");
                             const event = new CustomEvent("captured");
                             this.player.room = this.rooms.find((r)=>r.name === "dungeon");
                             dispatchEvent(event);
