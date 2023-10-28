@@ -1,10 +1,10 @@
 import { imageLibrary } from "../../images.ts";
-import { Character, Game } from "../index.ts";
+import { Character, Game, Player } from "../index.ts";
 import { Item } from "./Item.ts";
 
 export class Skull extends Item {
   constructor(
-    player: Character,
+    player: Player,
     game: Game,
   ) {
     super(

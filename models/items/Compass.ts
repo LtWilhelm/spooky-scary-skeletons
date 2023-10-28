@@ -1,11 +1,11 @@
 import { Vector } from "doodler";
 import { imageLibrary } from "../../images.ts";
-import { Character, Game, Room } from "../index.ts";
+import { Game, Player, Room } from "../index.ts";
 import { Item } from "./Item.ts";
 
 export class Compass extends Item {
   path?: Room[] | null;
-  constructor(p: Character, g: Game) {
+  constructor(p: Player, g: Game) {
     super(
       "Spectral Compass",
       3,

@@ -1,9 +1,9 @@
 import { imageLibrary } from "../../images.ts";
-import { Character, Game } from "../index.ts";
+import { Game, Player } from "../index.ts";
 import { Item } from "./Item.ts";
 
 export class Dice extends Item {
-  constructor(p: Character, g: Game) {
+  constructor(p: Player, g: Game) {
     super(
       "Cursed Dice",
       Infinity,

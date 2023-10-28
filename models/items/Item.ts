@@ -1,5 +1,5 @@
 import { Vector } from "https://git.cyborggrizzly.com/emma/doodler/raw/tag/0.0.9d/geometry/vector.ts";
-import { Character, Game } from "../index.ts";
+import { Game, Player } from "../index.ts";
 
 type gameEvents = "captured" | "nearby";
 
@@ -12,7 +12,7 @@ export class Item {
     public name: string,
     public uses: number,
     public points: number,
-    public player: Character,
+    public player: Player,
     public game: Game,
     public pickupDescription: string,
     public img: HTMLImageElement,

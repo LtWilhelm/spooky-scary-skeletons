@@ -1026,55 +1026,25 @@ class Item {
         });
     }
 }
-class Compass extends Item {
-    path;
-    constructor(p, g){
-        super("Spectral Compass", 3, 50, p, g, `
-      The glint of this ghostly compass catches your eye.
-      The needle flickers in and out of existence. It seems to point to your desires!
-      `, imageLibrary.compass);
+class Mirror extends Item {
+    constructor(player, game){
+        super("Mirror", 1, 30, player, game, `
+      A Haunted Mirror!<br>
+      Peering through it reveals all monsters
+      `, imageLibrary.mirror);
+        this.addEventListener("captured", ()=>{
+            this.onDrop();
+            this.player.item = undefined;
+        });
     }
-    handler = ()=>{
-        const floor = this.player.room.level;
-        const target = this.player.gatheredTreasures.includes(this.game.treasureRooms[floor]) ? this.game.stairs[floor] : this.game.treasureRooms[floor];
-        this.path = this.player.room.findPathTo(target, false, true);
-        for (const __char of this.player.room.characters.values()){
-            if (__char.name !== "skeleton") {
-                this.use();
-                if (this.uses < 1) {
-                    this.onDrop();
-                    this.player.item = undefined;
-                }
-            }
-        }
-    };
     onPickup() {
         super.onPickup();
-        this.player.safe = true;
-        this.player.vision = 1;
-        addEventListener("playermove", this.handler);
-        addEventListener("captured", this.handler);
-        this.handler();
+        this.player.vision = 10;
+        this.player.visionIncludesAllMonsters = true;
     }
     onDrop() {
-        removeEventListener("playermove", this.handler);
-        removeEventListener("captured", this.handler);
-        this.player.safe = false;
         this.player.vision = 0;
-    }
-    render() {
-        super.render();
-        if (this.path) {
-            const center = new Vector(0, this.game.gridSize.y).mult(32).add(8, 7);
-            const [current, next] = this.path;
-            if (!current || !next) return;
-            const dir = new Vector(next.position.x, next.position.y).sub(current.position.x, current.position.y);
-            dir.setMag(4);
-            doodler.line(center, center.copy().add(dir), {
-                color: "lime",
-                weight: .8
-            });
-        }
+        this.player.visionIncludesAllMonsters = false;
     }
 }
 class Character {
@@ -1088,7 +1058,7 @@ class Character {
         this._room?.characters.delete(this.uuid);
         this._room = r;
         this._room.characters.set(this.uuid, this);
-        if (this.uuid === this.game?.character?.uuid) {
+        if (this.uuid === this.game?.player?.uuid) {
             this.room.known = true;
             if (!this.game?.isHost) {
                 this.game.floor = this._room.level;
@@ -1096,57 +1066,13 @@ class Character {
         }
     }
     game;
-    hasMoved = true;
-    gatheredTreasures = [];
-    knownTreasures = [];
-    _score = 0;
-    get score() {
-        return this._score;
-    }
-    addPoints(s, doubleable) {
-        this._score += s;
-        if (doubleable) {
-            dispatchEvent(new CustomEvent("score", {
-                detail: s
-            }));
-        }
-        this.game.sendMessage({
-            action: "score",
-            score: this.score,
-            playerId: this.uuid
-        });
-    }
     image;
-    canSeeTraps = false;
-    _safe = false;
-    get safe() {
-        return this._safe;
-    }
-    set safe(s) {
-        this._safe = s;
-        if (!this.game?.isHost) {
-            this.game.channel?.send(JSON.stringify({
-                playerId: this.uuid,
-                action: "safe",
-                safe: this._safe
-            }));
-        }
-    }
-    visionIncludesAllMonsters = false;
-    vision = 0;
-    sight = 0;
-    item;
-    frozen = 0;
     teleportLocation;
-    seesTunnels = false;
     constructor(name, game){
         this.name = name;
         this.uuid = window.crypto.randomUUID();
         this.image = new Image();
         switch(this.name){
-            case "skeleton":
-                this.image.src = "./assets/images/skeleton.png";
-                break;
             case "ghost":
                 this.image.src = "./assets/images/ghost.png";
                 break;
@@ -1154,7 +1080,7 @@ class Character {
                 this.image.src = "./assets/images/explorer.png";
         }
         this.game = game;
-        this.roomPosition = new Vector(Math.floor(Math.random() * 26), Math.floor(Math.random() * 24));
+        this.randomizeRoomPosition();
     }
     get validSpaces() {
         const spaces = this.room.doors.map((d)=>[
@@ -1188,74 +1114,11 @@ class Character {
         }
         return spaces.filter((s)=>!!s[1]);
     }
-    init = ()=>{
-        const buttons = document.querySelectorAll("button.movement");
-        buttons.forEach((b)=>b.addEventListener("click", (e)=>{
-                const dir = e.target.dataset.dir;
-                switch(dir){
-                    case "c":
-                        this.room.search();
-                        break;
-                    case "b":
-                        this.item?.use();
-                        break;
-                    case "d":
-                        {
-                            this.move("secret");
-                            const audio = new Audio();
-                            audio.src = "./assets/sounds/secrettunnel.mp3";
-                            audio.play();
-                            break;
-                        }
-                    default:
-                        this.move(dir);
-                }
-            }));
-    };
-    buttons = ()=>{
-        const buttons = document.querySelectorAll("button.movement");
-        const validSpaces = this.validSpaces;
-        buttons.forEach((b)=>{
-            const dir = b.dataset.dir;
-            const room = validSpaces?.find((s)=>s[0] === dir);
-            if (room) {
-                b.disabled = false;
-            } else {
-                b.disabled = true;
-            }
-            if (dir === "up" && this.room?.name === "stairs" && (this.room.level === "basement" || this.room.level === "lower")) {
-                b.disabled = false;
-            }
-            if (dir === "down" && this.room?.name === "stairs" && (this.room.level === "upper" || this.room.level === "lower")) {
-                b.disabled = false;
-            }
-            if (dir === "c" && !this.room.hasBeenSearched) {
-                b.disabled = false;
-            }
-            if (dir === "b" && this.item?.usable) {
-                b.disabled = false;
-            }
-            if (dir === "d" && this.room.tunnelKnown) {
-                b.classList.remove("hidden");
-                b.disabled = false;
-            }
-            if (this.hasMoved) {
-                switch(dir){
-                    case "d":
-                        b.classList.add("hidden");
-                        break;
-                    default:
-                        b.disabled = true;
-                }
-            }
-        });
-    };
     move(dir, target) {
-        this.roomPosition = new Vector(Math.floor(Math.random() * 26), Math.floor(Math.random() * 24));
+        this.randomizeRoomPosition();
         if (dir && this.room.trapCount && dir !== "search" && !this.game.isHost) {
             this.room === this.room;
             this.room.trapCount -= 1;
-            this.hasMoved = true;
             const prev = this.game?.dialog?.innerHTML;
             this.game.dialog.innerHTML = "AAAARRRGH! A BUNCH OF SPIDERS HAVE YOU TRAPPED!";
             this.game.dialog?.showModal();
@@ -1271,7 +1134,6 @@ class Character {
             });
             this.game.render();
         } else if (dir) {
-            this.hasMoved = true;
             this.room?.element?.classList.remove("current");
             if (dir === "up" || dir === "down") {
                 const currentLevel = this.room.level;
@@ -1297,25 +1159,6 @@ class Character {
             } else {
                 this.room = this.room.neighbors[dir];
             }
-            if (this.room?.hasTreasure && !this.gatheredTreasures.includes(this.room)) {
-                this.gatheredTreasures.push(this.room);
-            }
-            if (!this.game.isHost) {
-                this.game?.render();
-                this.game.sendMessage({
-                    action: "move",
-                    playerId: this.uuid,
-                    direction: dir,
-                    roomId: this.room.uuid
-                });
-                this.game.floor = this.room?.level || this.game.floor;
-            }
-        } else {
-            const validSpaces = this.validSpaces;
-            this.room = this.room.trapCount || this.frozen ? this.room : this.teleportLocation || validSpaces[Math.floor(Math.random() * validSpaces.length)][1];
-            this.room.trapCount && this.room.trapCount--;
-            this.frozen && this.frozen--;
-            this.teleportLocation = undefined;
         }
         const moveEvent = new CustomEvent("playermove", {
             detail: this
@@ -1324,42 +1167,11 @@ class Character {
     }
     searchRoom = ()=>{};
     roomPosition;
+    randomizeRoomPosition() {
+        this.roomPosition = new Vector(Math.floor(Math.random() * 26), Math.floor(Math.random() * 24));
+    }
     path;
     render() {
-        if (!this.room) return;
-        const startPos = new Vector(this.room.position.x * 32, this.room.position.y * 32);
-        let scale = 2;
-        switch(this.name){
-            case "skeleton":
-                scale = 3;
-                break;
-        }
-        if (this.name !== "skeleton" && this.name !== "ghost") {
-            doodler.drawWithAlpha(this.safe ? .25 : 1, ()=>{
-                doodler.drawScaled(1 / scale, ()=>{
-                    this.game?.character === this ? doodler.drawImageWithOutline(this.image, startPos.copy().add(this.roomPosition).mult(scale), {
-                        color: "lime",
-                        weight: 6
-                    }) : doodler.drawImage(this.image, startPos.copy().add(this.roomPosition).mult(scale));
-                });
-            });
-            doodler.deferDrawing(()=>{
-                doodler.drawScaled(10 / scale, ()=>{
-                    const name = this.uuid === this.game?.character?.uuid ? "" : this.name;
-                    doodler.fillText(name, startPos.copy().add(this.roomPosition).add(4, 12).mult(scale), 40, {
-                        color: "lime",
-                        textAlign: "center"
-                    });
-                });
-            });
-        } else {
-            doodler.drawScaled(1 / scale, ()=>{
-                doodler.drawImageWithOutline(this.image, startPos.copy().add(this.roomPosition).mult(scale), {
-                    weight: 6,
-                    color: "purple"
-                });
-            });
-        }
         if (this.path && this.game.isHost) {
             const path = this.path;
             doodler.deferDrawing(()=>{
@@ -1834,7 +1646,7 @@ class Room {
             case "entrance":
                 return [
                     {
-                        item: Compass,
+                        item: Mirror,
                         type: "item",
                         weight: 1
                     }
@@ -1876,7 +1688,7 @@ class Room {
             switch(loot.type){
                 case "points":
                     {
-                        this.game.character?.addPoints(loot.value, true);
+                        this.game.player?.addPoints(loot.value, true);
                         const prev = this.game.dialog.innerHTML;
                         this.game.dialog.innerHTML = `You found ${loot.name} worth ${loot.value} points!`;
                         this.game.dialog.showModal();
@@ -1887,11 +1699,11 @@ class Room {
                         break;
                     }
                 case "item":
-                    new loot.item(this.game.character, this.game);
+                    new loot.item(this.game.player, this.game);
                     break;
             }
         }
-        this.game.character?.move("search");
+        this.game.player?.move("search");
         this.game.render();
     }
     rotation;
@@ -1924,20 +1736,20 @@ class Room {
                 });
             }
         }
-        if (this.game?.isHost || this.game?.character && this.characters.get(this.game.character.uuid)) {
+        if (this.game?.isHost || this.game?.player && this.characters.get(this.game.player.uuid)) {
             for (const __char of this.characters.values()){
                 __char.render();
             }
         }
-        if (this.hasTreasure && (this.game.isHost || this.known || this.game.character?.knownTreasures.includes(this))) {
+        if (this.hasTreasure && (this.game.isHost || this.known || this.game.player?.knownTreasures.includes(this))) {
             this.drawTreasure();
         }
         if (this.position.x === 0 && this.level !== "basement" && this.name !== "hallway") {
             doodler.drawImage(imageLibrary.window, new Vector(0, this.position.y * 32));
         }
-        if (this.game?.character?.vision && this.characters.get(this.game.character.uuid)) {
-            const rooms = this.game.rooms.filter((r)=>r.level === this.level && this.calculateDistanceToRoom(r) < (this.game?.character?.vision || 0) + 1);
-            const player = this.game.character;
+        if (this.game?.player?.vision && this.characters.get(this.game.player.uuid)) {
+            const rooms = this.game.rooms.filter((r)=>r.level === this.level && this.calculateDistanceToRoom(r) < (this.game?.player?.vision || 0) + 1);
+            const player = this.game.player;
             const renderables = [
                 "skeleton",
                 "ghost"
@@ -1954,10 +1766,10 @@ class Room {
                 }
             }
         }
-        if (this.game?.character?.sight && this.characters.get(this.game.character.uuid)) {
+        if (this.game?.player?.sight && this.characters.get(this.game.player.uuid)) {
             for (const door of this.doors){
                 let room = this.neighbors[door];
-                while(room && this.calculateDistanceToRoom(room) < this.game.character.sight + 1){
+                while(room && this.calculateDistanceToRoom(room) < this.game.player.sight + 1){
                     const r = room;
                     doodler.deferDrawing(()=>{
                         doodler.drawScaled(10, ()=>{
@@ -1972,13 +1784,13 @@ class Room {
                 }
             }
         }
-        if (this.trapCount && (this.game.isHost || this.game.character?.canSeeTraps)) {
+        if (this.trapCount && (this.game.isHost || this.game.player?.canSeeTraps)) {
             const point = new Vector(this.position.x * 32, this.position.y * 32).add(2, 22);
             doodler.drawScaled(.5, ()=>{
                 doodler.drawImage(imageLibrary.trap, point.mult(2));
             });
         }
-        if ((this.game.isHost || this.known && this.tunnelKnown || this.game.character?.seesTunnels) && this.secretTunnel) {
+        if ((this.game.isHost || this.known && this.tunnelKnown || this.game.player?.seesTunnels) && this.secretTunnel) {
             doodler.drawScaled(.5, ()=>{
                 doodler.drawImageWithOutline(imageLibrary.tunnel, new Vector(this.position.x, this.position.y).mult(64).add(3, 3), {
                     weight: 6,
@@ -1986,7 +1798,7 @@ class Room {
                 });
             });
         }
-        if (this.game.character?.seesTunnels && this.secretTunnel) {
+        if (this.game.player?.seesTunnels && this.secretTunnel) {
             for (const __char of this.characters.values()){
                 doodler.deferDrawing(()=>{
                     doodler.drawScaled(10, ()=>{
@@ -2123,6 +1935,172 @@ const floors = [
     "lower",
     "upper"
 ];
+class Player extends Character {
+    gatheredTreasures = [];
+    knownTreasures = [];
+    hasMoved = true;
+    item;
+    seesTunnels = false;
+    vision = 0;
+    sight = 0;
+    visionIncludesAllMonsters = false;
+    canSeeTraps = false;
+    _safe = false;
+    get safe() {
+        return this._safe;
+    }
+    set safe(s) {
+        this._safe = s;
+        if (!this.game?.isHost) {
+            this.game.channel?.send(JSON.stringify({
+                playerId: this.uuid,
+                action: "safe",
+                safe: this._safe
+            }));
+        }
+    }
+    _score = 0;
+    get score() {
+        return this._score;
+    }
+    addPoints(s, doubleable) {
+        this._score += s;
+        if (doubleable) {
+            dispatchEvent(new CustomEvent("score", {
+                detail: s
+            }));
+        }
+        this.game.sendMessage({
+            action: "score",
+            score: this.score,
+            playerId: this.uuid
+        });
+    }
+    init = ()=>{
+        const buttons = document.querySelectorAll("button.movement");
+        buttons.forEach((b)=>b.addEventListener("click", (e)=>{
+                const dir = e.target.dataset.dir;
+                switch(dir){
+                    case "c":
+                        this.room.search();
+                        break;
+                    case "b":
+                        this.item?.use();
+                        break;
+                    case "d":
+                        {
+                            this.move("secret");
+                            const audio = new Audio();
+                            audio.src = "./assets/sounds/secrettunnel.mp3";
+                            audio.play();
+                            break;
+                        }
+                    default:
+                        this.move(dir);
+                }
+            }));
+    };
+    buttons = ()=>{
+        const buttons = document.querySelectorAll("button.movement");
+        const validSpaces = this.validSpaces;
+        buttons.forEach((b)=>{
+            const dir = b.dataset.dir;
+            const room = validSpaces?.find((s)=>s[0] === dir);
+            if (room) {
+                b.disabled = false;
+            } else {
+                b.disabled = true;
+            }
+            if (dir === "up" && this.room?.name === "stairs" && (this.room.level === "basement" || this.room.level === "lower")) {
+                b.disabled = false;
+            }
+            if (dir === "down" && this.room?.name === "stairs" && (this.room.level === "upper" || this.room.level === "lower")) {
+                b.disabled = false;
+            }
+            if (dir === "c" && !this.room.hasBeenSearched) {
+                b.disabled = false;
+            }
+            if (dir === "b" && this.item?.usable) {
+                b.disabled = false;
+            }
+            if (dir === "d" && this.room.tunnelKnown) {
+                b.classList.remove("hidden");
+                b.disabled = false;
+            }
+            if (this.hasMoved) {
+                switch(dir){
+                    case "d":
+                        b.classList.add("hidden");
+                        break;
+                    default:
+                        b.disabled = true;
+                }
+            }
+        });
+    };
+    move(dir, target) {
+        this.hasMoved = true;
+        dir === "nav" ? super.move(dir, target) : super.move(dir);
+        this.game?.render();
+        this.game.sendMessage({
+            action: "move",
+            playerId: this.uuid,
+            direction: dir,
+            roomId: this.room.uuid
+        });
+        if (this.room?.hasTreasure && !this.gatheredTreasures.includes(this.room)) {
+            this.gatheredTreasures.push(this.room);
+        }
+        this.game.floor = this.room?.level || this.game.floor;
+    }
+    render() {
+        super.render();
+        const startPos = new Vector(this.room.position.x * 32, this.room.position.y * 32);
+        doodler.drawWithAlpha(this.safe ? .25 : 1, ()=>{
+            doodler.drawScaled(1 / 2, ()=>{
+                this.game?.player === this ? doodler.drawImageWithOutline(this.image, startPos.copy().add(this.roomPosition).mult(2), {
+                    color: "lime",
+                    weight: 6
+                }) : doodler.drawImage(this.image, startPos.copy().add(this.roomPosition).mult(2));
+            });
+        });
+        doodler.deferDrawing(()=>{
+            doodler.drawScaled(10 / 2, ()=>{
+                const name = this.uuid === this.game?.player?.uuid ? "" : this.name;
+                doodler.fillText(name, startPos.copy().add(this.roomPosition).add(4, 12).mult(2), 40, {
+                    color: "lime",
+                    textAlign: "center"
+                });
+            });
+        });
+    }
+}
+class Skeleton extends Character {
+    frozen = 0;
+    constructor(index, game){
+        super("skeleton", game);
+        this.uuid = "skeleton-" + index;
+        this.image.src = "./assets/images/skeleton.png";
+    }
+    navigate() {
+        const validSpaces = this.validSpaces;
+        const room = this.room.trapCount || this.frozen ? this.room : this.teleportLocation || validSpaces[Math.floor(Math.random() * validSpaces.length)][1];
+        this.room.trapCount && this.room.trapCount--;
+        this.frozen && this.frozen--;
+        this.teleportLocation = undefined;
+        this.move("nav", room);
+    }
+    render() {
+        super.render();
+        const startPos = new Vector(this.room.position.x * 32, this.room.position.y * 32);
+        doodler.drawScaled(1 / 3, ()=>{
+            doodler.drawImageWithOutline(this.image, startPos.copy().add(this.roomPosition).mult(3), {
+                weight: 6,
+                color: "purple"
+            });
+        });
+    }
+}
 class Game {
     rooms = [];
     characters = new Map();
@@ -2136,7 +2114,8 @@ class Game {
         y: 0
     };
     isHost = false;
-    character;
+    player;
+    players = [];
     dialog = document.querySelector("dialog");
     floor = "basement";
     tick = ()=>{
@@ -2307,7 +2286,7 @@ class Game {
             floor?.append(div);
             room.element = div;
         }
-        this.character?.init();
+        this.player?.init();
         doodler.createLayer(this.renderDoodle);
         if (!this.isHost) {
             doodler.createLayer(()=>{
@@ -2315,14 +2294,14 @@ class Game {
                     doodler.fillRect(new Vector(0, this.gridSize.y).mult(32), this.gridSize.x * 32, 16, {
                         color: "purple"
                     });
-                    this.character?.item?.render();
+                    this.player?.item?.render();
                     const treasureStart = new Vector(2, this.gridSize.y).mult(32).add(2, 2);
                     doodler.drawImage(imageLibrary.treasure, treasureStart, 12, 12);
-                    doodler.fillText(this.character?.gatheredTreasures.length.toString() || "0", treasureStart.copy().add(16, 6), 16, {
+                    doodler.fillText(this.player?.gatheredTreasures.length.toString() || "0", treasureStart.copy().add(16, 6), 16, {
                         fillColor: "white",
                         textBaseline: "middle"
                     });
-                    doodler.fillText("Score " + this.character?.score, treasureStart.copy().add(48, 6), 44, {
+                    doodler.fillText("Score " + this.player?.score, treasureStart.copy().add(48, 6), 44, {
                         fillColor: "white",
                         textBaseline: "middle"
                     });
@@ -2339,7 +2318,7 @@ class Game {
         });
     };
     render = ()=>{
-        this.character?.buttons();
+        this.player?.buttons();
     };
     changeFloor = (dir)=>{
         const options = {
@@ -2360,42 +2339,37 @@ class Game {
     randomSelector = (floor)=>`${Math.floor(Math.random() * this.gridSize.x)},${Math.floor(Math.random() * this.gridSize.y)},${floor || floors[Math.floor(Math.random() * floors.length)]}`;
     skeletonCheck = ()=>{
         const characters = Array.from(this.characters.values());
-        const skeletons = characters.filter((c)=>c.name === "skeleton");
-        for (const character of characters){
-            if (character.name !== "skeleton") {
-                skellies: for (const skeleton of skeletons){
-                    if (skeleton.frozen) continue skellies;
-                    if (!character.safe && character.room === skeleton.room) {
-                        character.room = this.rooms.find((r)=>r.name === "dungeon");
-                        this.channel?.send(JSON.stringify({
-                            action: "captured",
-                            playerId: character.uuid
-                        }));
-                    } else {
-                        this.channel?.send(JSON.stringify({
-                            action: "success",
-                            playerId: character.uuid
-                        }));
-                    }
+        characters.filter((c)=>c.name === "skeleton");
+        for (const character of this.players){
+            skellies: for (const skeleton of this.skeletons){
+                if (skeleton.frozen) continue skellies;
+                if (!character.safe && character.room === skeleton.room) {
+                    character.room = this.rooms.find((r)=>r.name === "dungeon");
+                    this.channel?.send(JSON.stringify({
+                        action: "captured",
+                        playerId: character.uuid
+                    }));
+                } else {
+                    this.channel?.send(JSON.stringify({
+                        action: "success",
+                        playerId: character.uuid
+                    }));
                 }
             }
         }
     };
     skeletonMove = ()=>{
-        const characters = Array.from(this.characters.values());
-        const skeletons = characters.filter((c)=>c.name === "skeleton");
-        for (const skeleton of skeletons){
-            skeleton.move();
+        for (const skeleton of this.skeletons){
+            skeleton.navigate();
             this.sendRoom(skeleton.room.uuid, skeleton.uuid);
         }
         this.skeletonCheck();
     };
     checkPlayerMoves = ()=>{
-        const characters = Array.from(this.characters.values()).filter((c)=>c.name !== "skeleton");
-        if (characters.every((c)=>c.hasMoved)) {
+        if (this.players.every((c)=>c.hasMoved)) {
             this.tick();
             setTimeout(()=>{
-                characters.forEach((c)=>c.hasMoved = false);
+                this.players.forEach((c)=>c.hasMoved = false);
                 this.channel?.send(JSON.stringify({
                     action: "unlock"
                 }));
@@ -2416,11 +2390,11 @@ class Game {
                 case "join":
                     {
                         if (!message.playerName) break;
-                        const __char = new Character(message.playerName, this);
-                        __char.game = this;
+                        const __char = new Player(message.playerName, this);
                         __char.room = this.rooms.find((r)=>r.name === "entrance");
                         __char.uuid = message.playerId;
                         this.characters.set(message.playerId, __char);
+                        this.players.push(__char);
                         const map = this.rooms.map((r)=>({
                                 name: r.name,
                                 level: r.level,
@@ -2440,17 +2414,10 @@ class Game {
                 case "move":
                     {
                         const c = this.characters.get(message.playerId);
-                        if (message.direction === "secret") {
-                            const room = this.rooms.find((r)=>r.uuid === message.roomId);
-                            c.room = room || c.room;
-                            c.hasMoved = true;
-                        } else if (message.direction === "nav") {
-                            const target = this.rooms.find((r)=>r.uuid === message.roomId);
-                            if (!target) break;
-                            c.move("nav", target);
-                        } else {
-                            c.move(message.direction);
-                        }
+                        const room = this.rooms.find((r)=>r.uuid === message.roomId);
+                        if (!room) break;
+                        c.room = room;
+                        c.hasMoved = true;
                         this.checkPlayerMoves();
                         this.sendRoom(c.room.uuid, c.uuid);
                         break;
@@ -2472,14 +2439,14 @@ class Game {
                     }
                 case "score":
                     {
-                        const __char = this.characters.get(message.playerId);
+                        const __char = this.players.find((p)=>p.uuid === message.playerId);
                         if (!__char) break;
                         __char._score = message.score || 0;
                         break;
                     }
                 case "safe":
                     {
-                        const __char = this.characters.get(message.playerId);
+                        const __char = this.players.find((p)=>p.uuid === message.playerId);
                         if (!__char) break;
                         __char.safe = !!message.safe;
                         break;
@@ -2493,9 +2460,8 @@ class Game {
                     }
                 case "freeze":
                     {
-                        for(let i = 0; i < this.skeletonCount; i++){
-                            const skel = this.characters.get("skeleton-" + i);
-                            skel.frozen += 3;
+                        for (const skelly of this.skeletons){
+                            skelly.frozen += 3;
                         }
                         break;
                     }
@@ -2512,17 +2478,17 @@ class Game {
         });
         this.channel = this.puppet.getChannel(channelId);
     };
+    skeletons = [];
     startGame = ()=>{
         for(let i = 0; i < this.skeletonCount; i++){
-            const skeleton = new Character("skeleton", this);
-            skeleton.uuid = "skeleton-" + i;
-            skeleton.game = this;
+            const skeleton = new Skeleton(i, this);
             skeleton.room = this.grid.get(this.randomSelector());
             while(skeleton.room.name === "entrance"){
                 skeleton.room = this.grid.get(this.randomSelector());
             }
             this.characters.set(skeleton.uuid, skeleton);
             this.sendRoom(skeleton.room.uuid, skeleton.uuid);
+            this.skeletons.push(skeleton);
         }
         this.channel?.send(JSON.stringify({
             action: "unlock"
@@ -2538,9 +2504,10 @@ class Game {
         const unlockButton = document.createElement("button");
         unlockButton.dataset.dir = "c";
         unlockButton.addEventListener("click", ()=>{
-            for (const [id, __char] of this.characters.entries()){
-                if (__char.name !== "skeleton" && !__char.hasMoved) {
-                    this.characters.delete(id);
+            for (const __char of this.players){
+                if (!__char.hasMoved) {
+                    this.characters.delete(__char.uuid);
+                    this.players = this.players.filter((p)=>p !== __char);
                 } else {
                     __char.hasMoved = false;
                 }
@@ -2592,8 +2559,8 @@ class Game {
                                 room1.secretTunnel = room2;
                                 room2.secretTunnel = room1;
                             }
-                            this.character.room = this.rooms.find((r)=>r.name === "entrance");
-                            this.character.room.itemChance = 1;
+                            this.player.room = this.rooms.find((r)=>r.name === "entrance");
+                            this.player.room.itemChance = 1;
                             this.render();
                             this.init();
                         }
@@ -2601,9 +2568,9 @@ class Game {
                     }
                 case "captured":
                     {
-                        if (this.character?.uuid === message.playerId && !this.character.safe) {
+                        if (this.player?.uuid === message.playerId && !this.player.safe) {
                             const event = new CustomEvent("captured");
-                            this.character.room = this.rooms.find((r)=>r.name === "dungeon");
+                            this.player.room = this.rooms.find((r)=>r.name === "dungeon");
                             dispatchEvent(event);
                             this.dialog?.showModal();
                             setTimeout(()=>{
@@ -2614,7 +2581,7 @@ class Game {
                     }
                 case "success":
                     {
-                        if (this.character?.gatheredTreasures.length === 3 && this.character.room?.name === "entrance") {
+                        if (this.player?.gatheredTreasures.length === 3 && this.player.room?.name === "entrance") {
                             this.dialog.innerHTML = `
               🎃🎃🎃<br>
               Congratulations! You have collected all of the treasures and escaped to safety!<br>
@@ -2623,21 +2590,21 @@ class Game {
                             this.dialog?.showModal();
                             this.channel?.send(JSON.stringify({
                                 action: "win",
-                                playerName: this.character.name
+                                playerName: this.player.name
                             }));
-                            this.character.safe = true;
+                            this.player.safe = true;
                         }
                         break;
                     }
                 case "unlock":
                     {
-                        this.character.hasMoved = false;
-                        this.character?.buttons();
+                        this.player.hasMoved = false;
+                        this.player?.buttons();
                         break;
                     }
                 case "win":
                     {
-                        this.character.hasMoved = true;
+                        this.player.hasMoved = true;
                         this.dialog.innerHTML = `
           🎃🎃🎃<br>
           ${message.playerName} has collected all of the treasures and escaped to safety!<br>
@@ -2648,17 +2615,17 @@ class Game {
                     }
                 case "continue":
                     {
-                        this.character.hasMoved = false;
-                        this.character?.buttons();
+                        this.player.hasMoved = false;
+                        this.player?.buttons();
                         this.dialog?.close();
                         break;
                     }
                 case "room":
                     {
-                        if (!this.character || !message.charsInRoom) break;
+                        if (!this.player || !message.charsInRoom) break;
                         for (const __char of message.charsInRoom){
                             const [uuid, name] = __char.split(",");
-                            if (uuid === this.character.uuid) continue;
+                            if (uuid === this.player.uuid) continue;
                             const c = this.characters.get(uuid) || new Character(name, this);
                             c.uuid = uuid;
                             this.characters.set(c.uuid, c);
@@ -2670,7 +2637,7 @@ class Game {
                 case "trap":
                     {
                         const room = this.rooms.find((r)=>r.uuid === message.roomId);
-                        if (this.character?.uuid === message.playerId || !room) break;
+                        if (this.player?.uuid === message.playerId || !room) break;
                         room.trapCount += 1;
                         break;
                     }
@@ -2700,11 +2667,10 @@ class Game {
         }));
     }
     createCharacter = (name)=>{
-        this.character = new Character(name, this);
-        this.character.game = this;
+        this.player = new Player(name, this);
         this.channel?.send(JSON.stringify({
             action: "join",
-            playerId: this.character.uuid,
+            playerId: this.player.uuid,
             playerName: name
         }));
     };

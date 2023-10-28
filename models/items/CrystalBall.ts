@@ -1,9 +1,9 @@
 import { imageLibrary } from "../../images.ts";
-import { Character, Game, Room } from "../index.ts";
+import { Game, Player, Room } from "../index.ts";
 import { Item } from "./Item.ts";
 
 export class CrystalBall extends Item {
-  constructor(player: Character, game: Game) {
+  constructor(player: Player, game: Game) {
     super(
       "Cyrstal Ball",
       1,

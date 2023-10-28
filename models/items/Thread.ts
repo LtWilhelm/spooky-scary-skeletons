@@ -1,11 +1,11 @@
 import { Vector } from "doodler";
 import { imageLibrary } from "../../images.ts";
-import { Character, Game, Room } from "../index.ts";
+import { Character, Game, Player, Room } from "../index.ts";
 import { Item } from "./Item.ts";
 
 export class Thread extends Item {
   path?: Room[] | null;
-  constructor(p: Character, g: Game) {
+  constructor(p: Player, g: Game) {
     super(
       "Spool of Thread",
       Infinity,

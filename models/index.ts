@@ -73,3 +73,5 @@ export { Game } from "./Game.ts";
 export { Room } from "./Room.ts";
 
 export { Character } from "./Character.ts";
+
+export { Player } from "./Player.ts";

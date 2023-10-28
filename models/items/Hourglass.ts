@@ -1,9 +1,9 @@
 import { imageLibrary } from "../../images.ts";
-import { Character, Game } from "../index.ts";
+import { Character, Game, Player } from "../index.ts";
 import { Item } from "./Item.ts";
 
 export class Hourglass extends Item {
-  constructor(p: Character, g: Game) {
+  constructor(p: Player, g: Game) {
     super(
       "Bone-sand Hourglass",
       2,

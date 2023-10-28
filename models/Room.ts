@@ -1,7 +1,7 @@
 import { Vector } from "doodler";
 import { Character } from "./Character.ts";
 import { Game } from "./Game.ts";
-import { direction, directions, floors, rooms } from "./index.ts";
+import { direction, directions, floors, Player, rooms } from "./index.ts";
 import { imageLibrary } from "../images.ts";
 import { Item } from "./items/Item.ts";
 import {
@@ -15,7 +15,7 @@ import {
 } from "./items/index.ts";
 
 type itemLoot = {
-  item: new (player: Character, game: Game) => Item;
+  item: new (player: Player, game: Game) => Item;
   type: "item";
   weight: number;
 };
@@ -252,7 +252,7 @@ export class Room {
       case "entrance":
         return [
           {
-            item: Compass,
+            item: Mirror,
             type: "item",
             weight: 1,
           },
@@ -297,7 +297,7 @@ export class Room {
 
       switch (loot.type) {
         case "points": {
-          this.game.character?.addPoints(loot.value, true);
+          this.game.player?.addPoints(loot.value, true);
           const prev = this.game.dialog.innerHTML;
           this.game.dialog.innerHTML =
             `You found ${loot.name} worth ${loot.value} points!`;
@@ -309,11 +309,11 @@ export class Room {
           break;
         }
         case "item":
-          new loot.item(this.game.character!, this.game);
+          new loot.item(this.game.player!, this.game);
           break;
       }
     }
-    this.game.character?.move("search");
+    this.game.player?.move("search");
     this.game.render();
   }
 
@@ -362,7 +362,7 @@ export class Room {
 
     if (
       this.game?.isHost ||
-      (this.game?.character && this.characters.get(this.game.character.uuid))
+      (this.game?.player && this.characters.get(this.game.player.uuid))
     ) {
       for (const char of this.characters.values()) {
         char.render();
@@ -372,7 +372,7 @@ export class Room {
     if (
       this.hasTreasure &&
       (this.game.isHost || this.known ||
-        this.game.character?.knownTreasures.includes(this))
+        this.game.player?.knownTreasures.includes(this))
     ) {
       this.drawTreasure();
     }
@@ -388,15 +388,15 @@ export class Room {
     }
 
     if (
-      this.game?.character?.vision &&
-      this.characters.get(this.game.character.uuid)
+      this.game?.player?.vision &&
+      this.characters.get(this.game.player.uuid)
     ) {
       const rooms = this.game.rooms.filter((r) =>
         r.level === this.level &&
         this.calculateDistanceToRoom(r) <
-          (this.game?.character?.vision || 0) + 1
+          (this.game?.player?.vision || 0) + 1
       );
-      const player = this.game.character;
+      const player = this.game.player;
       const renderables = ["skeleton", "ghost"].filter((r) =>
         player.visionIncludesAllMonsters || r === "skeleton"
       );
@@ -414,14 +414,14 @@ export class Room {
     }
 
     if (
-      this.game?.character?.sight &&
-      this.characters.get(this.game.character.uuid)
+      this.game?.player?.sight &&
+      this.characters.get(this.game.player.uuid)
     ) {
       for (const door of this.doors) {
         let room = this.neighbors[door];
         while (
           room &&
-          this.calculateDistanceToRoom(room) < this.game.character.sight + 1
+          this.calculateDistanceToRoom(room) < this.game.player.sight + 1
         ) {
           const r = room;
           doodler.deferDrawing(() => {
@@ -439,7 +439,7 @@ export class Room {
     }
 
     if (
-      this.trapCount && (this.game.isHost || this.game.character?.canSeeTraps)
+      this.trapCount && (this.game.isHost || this.game.player?.canSeeTraps)
     ) {
       const point = new Vector(this.position.x * 32, this.position.y * 32).add(
         2,
@@ -453,7 +453,7 @@ export class Room {
     if (
       (this.game.isHost ||
         (this.known && this.tunnelKnown) ||
-        this.game.character?.seesTunnels) && this.secretTunnel
+        this.game.player?.seesTunnels) && this.secretTunnel
     ) {
       doodler.drawScaled(.5, () => {
         doodler.drawImageWithOutline(
@@ -465,7 +465,7 @@ export class Room {
     }
 
     if (
-      this.game.character?.seesTunnels && this.secretTunnel
+      this.game.player?.seesTunnels && this.secretTunnel
     ) {
       for (const char of this.characters.values()) {
         doodler.deferDrawing(() => {

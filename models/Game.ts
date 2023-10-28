@@ -8,6 +8,8 @@ import { solver } from "../solver.ts";
 import { initializeDoodler } from "doodler";
 import { Vector } from "https://git.cyborggrizzly.com/emma/doodler/raw/tag/0.0.9d/geometry/vector.ts";
 import { imageLibrary } from "../images.ts";
+import { Skeleton } from "./Skeleton.ts";
+import { Player } from "./Player.ts";
 
 export class Game {
   rooms: Room[] = [];
@@ -21,7 +23,8 @@ export class Game {
 
   isHost = false;
 
-  character?: Character;
+  player?: Player;
+  players: Player[] = [];
 
   dialog = document.querySelector("dialog")!;
 
@@ -210,7 +213,7 @@ export class Game {
       room.element = div;
     }
 
-    this.character?.init();
+    this.player?.init();
 
     doodler.createLayer(this.renderDoodle);
     if (!this.isHost) {
@@ -225,7 +228,7 @@ export class Game {
             },
           );
 
-          this.character?.item?.render();
+          this.player?.item?.render();
 
           const treasureStart = new Vector(2, this.gridSize.y).mult(32).add(
             2,
@@ -239,7 +242,7 @@ export class Game {
             12,
           );
           doodler.fillText(
-            this.character?.gatheredTreasures.length.toString() || "0",
+            this.player?.gatheredTreasures.length.toString() || "0",
             treasureStart.copy().add(16, 6),
             16,
             {
@@ -249,7 +252,7 @@ export class Game {
           );
 
           doodler.fillText(
-            "Score " + this.character?.score,
+            "Score " + this.player?.score,
             treasureStart.copy().add(48, 6),
             44,
             {
@@ -325,7 +328,7 @@ export class Game {
 
     //   document.querySelector(".floor-name")!.textContent = nameDict[this.floor];
     // }
-    this.character?.buttons();
+    this.player?.buttons();
   };
 
   changeFloor = (dir: "up" | "down") => {
@@ -356,50 +359,42 @@ export class Game {
     const characters = Array.from(this.characters.values());
     const skeletons = characters.filter((c) => c.name === "skeleton");
 
-    for (const character of characters) {
-      if (character.name !== "skeleton") {
-        skellies:
-        for (const skeleton of skeletons) {
-          if (skeleton.frozen) continue skellies;
-          if (
-            !character.safe &&
-            character.room === skeleton.room
-          ) {
-            character.room = this.rooms.find((r) => r.name === "dungeon")!;
-            this.channel?.send(JSON.stringify({
-              action: "captured",
-              playerId: character.uuid,
-            }));
-          } else {
-            this.channel?.send(JSON.stringify({
-              action: "success",
-              playerId: character.uuid,
-            }));
-          }
+    for (const character of this.players) {
+      skellies:
+      for (const skeleton of this.skeletons) {
+        if (skeleton.frozen) continue skellies;
+        if (
+          !character.safe &&
+          character.room === skeleton.room
+        ) {
+          character.room = this.rooms.find((r) => r.name === "dungeon")!;
+          this.channel?.send(JSON.stringify({
+            action: "captured",
+            playerId: character.uuid,
+          }));
+        } else {
+          this.channel?.send(JSON.stringify({
+            action: "success",
+            playerId: character.uuid,
+          }));
         }
       }
     }
   };
 
   skeletonMove = () => {
-    const characters = Array.from(this.characters.values());
-    const skeletons = characters.filter((c) => c.name === "skeleton");
-
-    for (const skeleton of skeletons) {
-      skeleton.move();
+    for (const skeleton of this.skeletons) {
+      skeleton.navigate();
       this.sendRoom(skeleton.room.uuid, skeleton.uuid);
     }
     this.skeletonCheck();
   };
 
   checkPlayerMoves = () => {
-    const characters = Array.from(this.characters.values()).filter((c) =>
-      c.name !== "skeleton"
-    );
-    if (characters.every((c) => c.hasMoved)) {
+    if (this.players.every((c) => c.hasMoved)) {
       this.tick();
       setTimeout(() => {
-        characters.forEach((c) => c.hasMoved = false);
+        this.players.forEach((c) => c.hasMoved = false);
         this.channel?.send(JSON.stringify({
           action: "unlock",
         }));
@@ -423,11 +418,11 @@ export class Game {
       switch (message.action) {
         case "join": {
           if (!message.playerName) break;
-          const char = new Character(message.playerName, this);
-          char.game = this;
+          const char = new Player(message.playerName, this);
           char.room = this.rooms.find((r) => r.name === "entrance")!;
           char.uuid = message.playerId;
           this.characters.set(message.playerId, char);
+          this.players.push(char);
           const map = this.rooms.map((r) => ({
             name: r.name,
             level: r.level,
@@ -445,18 +440,22 @@ export class Game {
           break;
         }
         case "move": {
-          const c = this.characters.get(message.playerId)!;
-          if (message.direction === "secret") {
-            const room = this.rooms.find((r) => r.uuid === message.roomId);
-            c.room = room || c.room;
-            c.hasMoved = true;
-          } else if (message.direction === "nav") {
-            const target = this.rooms.find((r) => r.uuid === message.roomId);
-            if (!target) break;
-            c.move("nav", target);
-          } else {
-            c.move(message.direction!);
-          }
+          const c = this.characters.get(message.playerId)! as Player;
+          const room = this.rooms.find((r) => r.uuid === message.roomId);
+          if (!room) break;
+          c.room = room;
+          c.hasMoved = true;
+          // if (message.direction === "secret") {
+          //   const room = this.rooms.find((r) => r.uuid === message.roomId);
+          //   c.room = room || c.room;
+          //   c.hasMoved = true;
+          // } else if (message.direction === "nav") {
+          //   const target = this.rooms.find((r) => r.uuid === message.roomId);
+          //   if (!target) break;
+          //   c.move("nav", target);
+          // } else {
+          //   c.move(message.direction!);
+          // }
           this.checkPlayerMoves();
           this.sendRoom(c.room.uuid, c.uuid);
           break;
@@ -474,13 +473,13 @@ export class Game {
           break;
         }
         case "score": {
-          const char = this.characters.get(message.playerId);
+          const char = this.players.find((p) => p.uuid === message.playerId);
           if (!char) break;
           char._score = message.score || 0;
           break;
         }
         case "safe": {
-          const char = this.characters.get(message.playerId);
+          const char = this.players.find((p) => p.uuid === message.playerId);
           if (!char) break;
           char.safe = !!message.safe;
           break;
@@ -492,9 +491,8 @@ export class Game {
           break;
         }
         case "freeze": {
-          for (let i = 0; i < this.skeletonCount; i++) {
-            const skel = this.characters.get("skeleton-" + i)!;
-            skel.frozen += 3;
+          for (const skelly of this.skeletons) {
+            skelly.frozen += 3;
           }
           break;
         }
@@ -517,17 +515,18 @@ export class Game {
     this.channel = this.puppet.getChannel(channelId);
   };
 
+  skeletons: Skeleton[] = [];
+
   startGame = () => {
     for (let i = 0; i < this.skeletonCount; i++) {
-      const skeleton = new Character("skeleton", this);
-      skeleton.uuid = "skeleton-" + i;
-      skeleton.game = this;
+      const skeleton = new Skeleton(i, this);
       skeleton.room = this.grid.get(this.randomSelector())!;
       while (skeleton.room.name === "entrance") {
         skeleton.room = this.grid.get(this.randomSelector())!;
       }
       this.characters.set(skeleton.uuid, skeleton);
       this.sendRoom(skeleton.room.uuid, skeleton.uuid);
+      this.skeletons.push(skeleton);
     }
     this.channel?.send(JSON.stringify({ action: "unlock" }));
     const buttons = document.querySelector(".buttons");
@@ -548,9 +547,10 @@ export class Game {
     const unlockButton = document.createElement("button");
     unlockButton.dataset.dir = "c";
     unlockButton.addEventListener("click", () => {
-      for (const [id, char] of this.characters.entries()) {
-        if (char.name !== "skeleton" && !char.hasMoved) {
-          this.characters.delete(id);
+      for (const char of this.players) {
+        if (!char.hasMoved) {
+          this.characters.delete(char.uuid);
+          this.players = this.players.filter((p) => p !== char);
         } else {
           char.hasMoved = false;
         }
@@ -606,10 +606,8 @@ export class Game {
               room1.secretTunnel = room2;
               room2.secretTunnel = room1;
             }
-            this.character!.room = this.rooms.find((r) =>
-              r.name === "entrance"
-            )!;
-            this.character!.room.itemChance = 1;
+            this.player!.room = this.rooms.find((r) => r.name === "entrance")!;
+            this.player!.room.itemChance = 1;
             this.render();
             this.init();
           }
@@ -617,10 +615,10 @@ export class Game {
         }
         case "captured": {
           if (
-            this.character?.uuid === message.playerId && !this.character.safe
+            this.player?.uuid === message.playerId && !this.player.safe
           ) {
             const event = new CustomEvent("captured");
-            this.character.room = this.rooms.find((r) => r.name === "dungeon")!;
+            this.player.room = this.rooms.find((r) => r.name === "dungeon")!;
             dispatchEvent(event);
             this.dialog?.showModal();
             setTimeout(() => {
@@ -631,8 +629,8 @@ export class Game {
         }
         case "success": {
           if (
-            this.character?.gatheredTreasures.length === 3 &&
-            this.character.room?.name === "entrance"
+            this.player?.gatheredTreasures.length === 3 &&
+            this.player.room?.name === "entrance"
           ) {
             this.dialog!.innerHTML = `
               🎃🎃🎃<br>
@@ -642,19 +640,19 @@ export class Game {
             this.dialog?.showModal();
             this.channel?.send(JSON.stringify({
               action: "win",
-              playerName: this.character.name,
+              playerName: this.player.name,
             }));
-            this.character.safe = true;
+            this.player.safe = true;
           }
           break;
         }
         case "unlock": {
-          this.character!.hasMoved = false;
-          this.character?.buttons();
+          this.player!.hasMoved = false;
+          this.player?.buttons();
           break;
         }
         case "win": {
-          this.character!.hasMoved = true;
+          this.player!.hasMoved = true;
           this.dialog!.innerHTML = `
           🎃🎃🎃<br>
           ${message.playerName} has collected all of the treasures and escaped to safety!<br>
@@ -664,21 +662,21 @@ export class Game {
           break;
         }
         case "continue": {
-          this.character!.hasMoved = false;
-          this.character?.buttons();
+          this.player!.hasMoved = false;
+          this.player?.buttons();
           this.dialog?.close();
           break;
         }
         case "room": {
           if (
-            !this.character ||
+            !this.player ||
             // this.character.room.uuid !== message.roomId ||
             !message.charsInRoom
             // message.playerId === this.character.uuid
           ) break;
           for (const char of message.charsInRoom) {
             const [uuid, name] = char.split(",");
-            if (uuid === this.character.uuid) continue;
+            if (uuid === this.player.uuid) continue;
             const c = this.characters.get(uuid) || new Character(name, this);
             c.uuid = uuid;
             this.characters.set(c.uuid, c);
@@ -689,7 +687,7 @@ export class Game {
         }
         case "trap": {
           const room = this.rooms.find((r) => r.uuid === message.roomId);
-          if (this.character?.uuid === message.playerId || !room) break;
+          if (this.player?.uuid === message.playerId || !room) break;
           room.trapCount += 1;
           break;
         }
@@ -731,11 +729,10 @@ export class Game {
   }
 
   createCharacter = (name: string) => {
-    this.character = new Character(name, this);
-    this.character.game = this;
+    this.player = new Player(name, this);
     this.channel?.send(JSON.stringify({
       action: "join",
-      playerId: this.character.uuid,
+      playerId: this.player.uuid,
       playerName: name,
     }));
   };

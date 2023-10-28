@@ -1,9 +1,9 @@
 import { imageLibrary } from "../../images.ts";
-import { Character, Game } from "../index.ts";
+import { Character, Game, Player } from "../index.ts";
 import { Item } from "./Item.ts";
 
 export class Spyglass extends Item {
-  constructor(player: Character, game: Game) {
+  constructor(player: Player, game: Game) {
     super(
       "Spyglass",
       Infinity,
