@@ -1417,6 +1417,31 @@ class Painting extends Item {
         this.player.seesTunnels = false;
     }
 }
+class MusicBox extends Item {
+    onPickup() {
+        super.pickup();
+    }
+    onDrop() {}
+    constructor(p, g){
+        super("Creepy Music Box", 3, 25, p, g, `
+      A haunting tune catches your attention.
+      Perhaps you could use this to distract skeletons?
+      `, imageLibrary.musicBox);
+    }
+    get usable() {
+        return !!this.uses;
+    }
+    use() {
+        if (!super.use()) return false;
+        this.game.sendMessage({
+            action: "music",
+            roomId: this.player.room.uuid,
+            playerId: this.player.uuid
+        });
+        if (!this.uses) this.player.item = undefined;
+        return true;
+    }
+}
 const ITEMS = [
     Spyglass,
     CrystalBall,
@@ -1424,7 +1449,8 @@ const ITEMS = [
     Lantern,
     Hourglass,
     Thread,
-    Compass
+    Compass,
+    MusicBox
 ];
 class Channel {
     id;
@@ -2082,7 +2108,7 @@ class Room {
             case "entrance":
                 return [
                     {
-                        item: Compass,
+                        item: MusicBox,
                         type: "item",
                         weight: 1
                     }
@@ -2516,18 +2542,30 @@ class Player extends Character {
 }
 class Skeleton extends Character {
     frozen = 0;
+    targetRoom;
+    targetingTurns = 0;
     constructor(index, game){
         super("skeleton", game);
         this.uuid = "skeleton-" + index;
         this.image.src = "./assets/images/skeleton.png";
     }
     navigate() {
-        const validSpaces = this.validSpaces;
-        const room = this.room.trapCount || this.frozen ? this.room : this.teleportLocation || validSpaces[Math.floor(Math.random() * validSpaces.length)][1];
-        this.room.trapCount && this.room.trapCount--;
-        this.frozen && this.frozen--;
-        this.teleportLocation = undefined;
-        this.move("nav", room);
+        if (this.targetRoom && this.targetingTurns && !this.path) {
+            this.path = this.room.findPathTo(this.targetRoom);
+            this.path?.shift();
+        }
+        if (this.path && this.path.length && this.targetingTurns) {
+            this.room = this.path.shift();
+            this.targetingTurns--;
+            if (!this.targetingTurns) this.path = undefined;
+        } else {
+            const validSpaces = this.validSpaces;
+            const room = this.room.trapCount || this.frozen ? this.room : this.teleportLocation || validSpaces[Math.floor(Math.random() * validSpaces.length)][1];
+            this.room.trapCount && this.room.trapCount--;
+            this.frozen && this.frozen--;
+            this.teleportLocation = undefined;
+            this.move("nav", room);
+        }
     }
     render(startPos) {
         doodler.drawScaled(1 / 3, ()=>{
@@ -2536,6 +2574,21 @@ class Skeleton extends Character {
                 color: "purple"
             });
         });
+        if (this.path && this.game.isHost) {
+            const path = this.path;
+            doodler.deferDrawing(()=>{
+                doodler.drawScaled(10, ()=>{
+                    let prev = startPos.copy().add(16, 16);
+                    for (const step of path){
+                        const next = step.getRoomPos().add(Room.FloorZ[step.level] * this.game.gridSize.x, 0).mult(32).add(16, 16);
+                        doodler.line(prev, next, {
+                            color: "red"
+                        });
+                        prev = next;
+                    }
+                });
+            });
+        }
     }
 }
 class Game {
@@ -2577,7 +2630,7 @@ class Game {
             lower: undefined,
             basement: undefined
         };
-        this.skeletonCount = Number(prompt("How many skeletons?") || "0");
+        this.skeletonCount = Number(prompt("How many skeletons?") || "3");
         while(!solvable){
             const floors = [
                 "basement",
@@ -2916,6 +2969,15 @@ class Game {
                             const players = Array.from(this.characters.values()).filter((c)=>c.name !== "ghost" && c.name !== "skeleton");
                             skelly.teleportLocation = players[Math.floor(Math.random() * players.length)].room;
                         }
+                        break;
+                    }
+                case "music":
+                    {
+                        const room = this.rooms.find((r)=>r.uuid === message.roomId);
+                        for (const skelly of this.skeletons){
+                            skelly.targetRoom = room;
+                            skelly.targetingTurns = 5;
+                        }
                     }
             }
         });
@@ -3008,7 +3070,8 @@ class Game {
                                 room1.secretTunnel = room2;
                                 room2.secretTunnel = room1;
                             }
-                            this.player.room = this.rooms.find((r)=>r.name === "entrance");
+                            this.player.room = this.entrance;
+                            this.entrance.itemChance = 1;
                             this.render();
                             this.init();
                         }

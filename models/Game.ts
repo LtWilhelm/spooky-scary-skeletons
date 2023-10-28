@@ -56,7 +56,7 @@ export class Game {
       lower: undefined,
       basement: undefined,
     };
-    this.skeletonCount = Number(prompt("How many skeletons?") || "0");
+    this.skeletonCount = Number(prompt("How many skeletons?") || "3");
     while (!solvable) {
       const floors: floors[] = ["basement", "lower", "upper"];
       this.grid = new Map();
@@ -505,6 +505,14 @@ export class Game {
             skelly.teleportLocation =
               players[Math.floor(Math.random() * players.length)].room;
           }
+          break;
+        }
+        case "music": {
+          const room = this.rooms.find((r) => r.uuid === message.roomId!);
+          for (const skelly of this.skeletons) {
+            skelly.targetRoom = room;
+            skelly.targetingTurns = 5;
+          }
         }
       }
     });
@@ -609,7 +617,8 @@ export class Game {
               room1.secretTunnel = room2;
               room2.secretTunnel = room1;
             }
-            this.player!.room = this.rooms.find((r) => r.name === "entrance")!;
+            this.player!.room = this.entrance;
+            this.entrance.itemChance = 1;
             this.render();
             this.init();
           }
@@ -875,6 +884,7 @@ interface socketPacket {
     | "freeze"
     | "dice"
     | "scoreboard"
+    | "music"
     | "score";
   playerId: string;
   playerName?: string;

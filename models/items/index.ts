@@ -10,6 +10,7 @@ import { Quill } from "./Quill.ts";
 import { Thread } from "./Thread.ts";
 import { Compass } from "./Compass.ts";
 import { Painting } from "./Painting.ts";
+import { MusicBox } from "./MusicBox.ts";
 
 export const ITEMS = [
   Spyglass,
@@ -19,6 +20,7 @@ export const ITEMS = [
   Hourglass,
   Thread,
   Compass,
+  MusicBox,
 ];
 
 export { Spyglass };
@@ -33,3 +35,4 @@ export { Quill };
 export { Thread };
 export { Compass };
 export { Painting };
+export { MusicBox };

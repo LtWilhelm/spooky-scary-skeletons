@@ -15,7 +15,7 @@
 - [x] Cursed Portrait (Alcoves): When uncovered, this painting reveals hidden
       passages within the alcoves, giving you secret routes to explore.
 - [x] Hourglass: freezes all monsters for one turn. One time use
-- [ ] Music box: Attracts skeletons to the room it's used in for 3 turns. 3 uses
+- [x] Music box: Attracts skeletons to the room it's used in for 3 turns. 3 uses
 - [x] Cursed dice (game room): Has 50/50 chance of teleporting a random skeleton
       to you or an opponent when you search a room. Points gained while
       searching are doubled

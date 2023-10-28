@@ -12,6 +12,7 @@ import {
   ITEMS,
   Lantern,
   Mirror,
+  MusicBox,
   Painting,
   Quill,
   Skull,
@@ -326,7 +327,7 @@ export class Room {
       case "entrance":
         return [
           {
-            item: Compass,
+            item: MusicBox,
             type: "item",
             weight: 1,
           },
