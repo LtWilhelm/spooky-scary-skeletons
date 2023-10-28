@@ -3,7 +3,7 @@
     "lib": [
       "dom",
       "es6",
-      "es2021"
+      "es2022"
     ]
   },
   "noExplicitAny": false,

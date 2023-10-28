@@ -147,6 +147,32 @@ export abstract class Character {
   path?: Room[] | null;
 
   abstract render(startVec: Vector): void;
+  renderPath(pos: Vector) {
+    if (this.path && this.game.isHost) {
+      const path = this.path;
+      doodler.deferDrawing(() => {
+        doodler.drawScaled(10, () => {
+          let prev = pos.copy().add(16, 16);
+
+          for (
+            const step of path
+            // const step of path.filter((r) => r.level === this.room.level)
+          ) {
+            const next = step.getRoomPos().add(
+              Room.FloorZ[step.level] * this.game.gridSize.x,
+              0,
+            ).mult(32)
+              .add(
+                16,
+                16,
+              );
+            doodler.line(prev, next, { color: "red" });
+            prev = next;
+          }
+        });
+      });
+    }
+  }
   //   if (this.path && this.game.isHost) {
   //     const path = this.path;
   //     doodler.deferDrawing(() => {

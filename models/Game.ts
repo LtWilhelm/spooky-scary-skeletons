@@ -396,7 +396,7 @@ export class Game {
         this.channel?.send(JSON.stringify({
           action: "unlock",
         }));
-      }, 2000);
+      }, 500);
     }
   };
 
@@ -509,10 +509,12 @@ export class Game {
         }
         case "music": {
           const room = this.rooms.find((r) => r.uuid === message.roomId!);
+          if (!room) break;
           for (const skelly of this.skeletons) {
-            skelly.targetRoom = room;
+            skelly.targetRoom.push(room);
             skelly.targetingTurns = 5;
           }
+          break;
         }
       }
     });
@@ -618,7 +620,6 @@ export class Game {
               room2.secretTunnel = room1;
             }
             this.player!.room = this.entrance;
-            this.entrance.itemChance = 1;
             this.render();
             this.init();
           }

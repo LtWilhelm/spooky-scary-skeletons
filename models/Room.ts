@@ -6,19 +6,12 @@ import { imageLibrary } from "../images.ts";
 import { Item } from "./items/Item.ts";
 import {
   Compass,
-  CrystalBall,
   Dice,
-  Hourglass,
   ITEMS,
-  Lantern,
   Mirror,
-  MusicBox,
   Painting,
   Quill,
   Skull,
-  SpiderJar,
-  Spyglass,
-  Thread,
 } from "./items/index.ts";
 
 type itemLoot = {
@@ -178,7 +171,7 @@ export class Room {
     let acc = 0;
     while (acc < 1000) {
       const weight = (Math.random() * 150) + 50;
-      if (Math.random() < .1) {
+      if (Math.random() < .2) {
         this._lootTable.push({
           type: "item",
           item: ITEMS[Math.floor(Math.random() * ITEMS.length)],
@@ -327,7 +320,7 @@ export class Room {
       case "entrance":
         return [
           {
-            item: MusicBox,
+            item: Compass,
             type: "item",
             weight: 1,
           },
@@ -586,7 +579,7 @@ export class Room {
       );
       for (const neighbor of neighbors) {
         const tentativeGScore = gScore[current.getKey()] +
-          this.distance(current, neighbor, includeDiagonal);
+          Room.distance(current, neighbor, includeDiagonal);
 
         if (
           !gScore[neighbor.getKey()] ||
@@ -684,7 +677,7 @@ export class Room {
     return path;
   }
 
-  private distance(room1: Room, room2: Room, includeDiagonal: boolean): number {
+  static distance(room1: Room, room2: Room, includeDiagonal: boolean): number {
     if (room1.name === "stairs" && room2.name === "stairs") return 1;
 
     return includeDiagonal
@@ -710,8 +703,8 @@ export class Room {
   private heuristic(targetRoom: Room, includeDiagonal: boolean): number {
     // Placeholder for heuristic calculation, replace with actual logic
     return targetRoom.level === this.level
-      ? this.distance(this, targetRoom, includeDiagonal)
-      : this.distance(this, this.game.stairs[this.level], includeDiagonal);
+      ? Room.distance(this, targetRoom, includeDiagonal)
+      : Room.distance(this, this.game.stairs[this.level], includeDiagonal);
   }
 
   private getKey(): string {

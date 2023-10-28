@@ -4,7 +4,7 @@ import { Character, Game, Room } from "./index.ts";
 export class Skeleton extends Character {
   frozen = 0;
 
-  targetRoom?: Room;
+  targetRoom: Room[] = [];
   targetingTurns = 0;
 
   constructor(index: number, game: Game) {
@@ -18,15 +18,25 @@ export class Skeleton extends Character {
   }
 
   navigate() {
-    if (this.targetRoom && this.targetingTurns && !this.path) {
-      this.path = this.room.findPathTo(this.targetRoom);
+    const target =
+      this.targetRoom.sort((a, b) =>
+        Room.distance(this.room, b, true) - Room.distance(this.room, a, true)
+      )[0];
+    if (
+      target && this.targetingTurns &&
+      (!this.path || this.path.at(-1) !== target)
+    ) {
+      this.path = this.room.findPathTo(target);
       // Remove first step which is always the current room
       this.path?.shift();
     }
     if (this.path && this.path.length && this.targetingTurns) {
       this.room = this.path.shift()!;
       this.targetingTurns--;
-      if (!this.targetingTurns) this.path = undefined;
+      if (!this.targetingTurns || this.room === target) {
+        this.path = undefined;
+        this.targetRoom = [];
+      }
     } else {
       const validSpaces = this.validSpaces;
       const room = this.room.trapCount || this.frozen
@@ -51,29 +61,6 @@ export class Skeleton extends Character {
       );
     });
 
-    if (this.path && this.game.isHost) {
-      const path = this.path;
-      doodler.deferDrawing(() => {
-        doodler.drawScaled(10, () => {
-          let prev = startPos.copy().add(16, 16);
-
-          for (
-            const step of path
-            // const step of path.filter((r) => r.level === this.room.level)
-          ) {
-            const next = step.getRoomPos().add(
-              Room.FloorZ[step.level] * this.game.gridSize.x,
-              0,
-            ).mult(32)
-              .add(
-                16,
-                16,
-              );
-            doodler.line(prev, next, { color: "red" });
-            prev = next;
-          }
-        });
-      });
-    }
+    super.renderPath(startPos);
   }
 }

@@ -1662,19 +1662,28 @@ class Painting extends Item {
     }
 }
 class MusicBox extends Item {
-    onPickup() {
-        super.pickup();
-    }
-    onDrop() {}
+    turns = 0;
     constructor(p, g){
         super("Creepy Music Box", 3, 25, p, g, `
       A haunting tune catches your attention.
       Perhaps you could use this to distract skeletons?
       `, imageLibrary.musicBox);
     }
+    onPickup() {
+        super.pickup();
+    }
+    onDrop() {}
     get usable() {
         return !!this.uses;
     }
+    handler = ()=>{
+        this.turns--;
+        if (!this.turns) {
+            for (const skelly of this.game.skeletons){
+                skelly.path = undefined;
+            }
+        }
+    };
     use() {
         if (!this.uses) {
             this.player.item = undefined;
@@ -1685,7 +1694,36 @@ class MusicBox extends Item {
             roomId: this.player.room.uuid,
             playerId: this.player.uuid
         });
+        this.turns = 5;
+        for (const skelly of this.game.skeletons){
+            skelly.path = skelly.room.findPathTo(this.player.room);
+        }
+        addEventListener("playermove", this.handler);
         return super.use();
+    }
+    render() {
+        super.render();
+        for (const skelly of this.game.skeletons){
+            if (skelly.path) {
+                const path = skelly.path.filter((r)=>r.level === this.player.room.level);
+                doodler.deferDrawing(()=>{
+                    doodler.drawScaled(10, ()=>{
+                        let prev;
+                        for (const [i, step] of path.entries()){
+                            const next = step.getRoomPos().mult(32).add(16, 16);
+                            if (!prev) {
+                                prev = next;
+                                continue;
+                            }
+                            doodler.line(prev, next, {
+                                color: "aqua"
+                            });
+                            prev = next;
+                        }
+                    });
+                });
+            }
+        }
     }
 }
 const ITEMS = [
@@ -1933,131 +1971,6 @@ const recursiveSearch = (current, last, target)=>{
     }
     return false;
 };
-class Character {
-    name;
-    uuid;
-    _room;
-    get room() {
-        return this._room;
-    }
-    set room(r) {
-        this._room?.characters.delete(this.uuid);
-        this._room = r;
-        this._room.characters.set(this.uuid, this);
-        if (this.uuid === this.game?.player?.uuid) {
-            this.room.known = true;
-            if (!this.game?.isHost) {
-                this.game.floor = this._room.level;
-            }
-        }
-    }
-    game;
-    image;
-    teleportLocation;
-    constructor(name, game){
-        this.name = name;
-        this.uuid = window.crypto.randomUUID();
-        this.image = new Image();
-        switch(this.name){
-            case "ghost":
-                this.image.src = "./assets/images/ghost.png";
-                break;
-            default:
-                this.image.src = "./assets/images/explorer.png";
-        }
-        this.game = game;
-        this.randomizeRoomPosition();
-    }
-    get validSpaces() {
-        const spaces = this.room.doors.map((d)=>[
-                d,
-                this.room?.neighbors[d]
-            ]);
-        if (this.room?.name === "stairs") {
-            const currentLevel = this.room.level;
-            const options = {
-                up: {
-                    basement: "lower",
-                    lower: "upper",
-                    upper: "asdf"
-                },
-                down: {
-                    upper: "lower",
-                    lower: "basement",
-                    basement: "asdf"
-                }
-            };
-            const up = this.game?.rooms.find((r)=>r.name === "stairs" && r.level === options["up"][currentLevel]);
-            const down = this.game?.rooms.find((r)=>r.name === "stairs" && r.level === options["down"][currentLevel]);
-            spaces.push([
-                "up",
-                up
-            ]);
-            spaces.push([
-                "down",
-                down
-            ]);
-        }
-        return spaces.filter((s)=>!!s[1]);
-    }
-    move(dir, target) {
-        this.randomizeRoomPosition();
-        if (dir && this.room.trapCount && dir !== "search" && !this.game.isHost) {
-            this.room === this.room;
-            this.room.trapCount -= 1;
-            const prev = this.game?.dialog?.innerHTML;
-            this.game.dialog.innerHTML = "AAAARRRGH! A BUNCH OF SPIDERS HAVE YOU TRAPPED!";
-            this.game.dialog?.showModal();
-            setTimeout(()=>{
-                this.game.dialog?.close();
-                this.game.dialog.innerHTML = prev || "";
-            }, 3000);
-            !this.game.isHost && this.game.sendMessage({
-                action: "move",
-                playerId: this.uuid,
-                direction: "search",
-                playerName: this.name
-            });
-            this.game.render();
-        } else if (dir) {
-            this.room?.element?.classList.remove("current");
-            if (dir === "up" || dir === "down") {
-                const currentLevel = this.room.level;
-                const options = {
-                    up: {
-                        basement: "lower",
-                        upper: "upper",
-                        lower: "upper"
-                    },
-                    down: {
-                        upper: "lower",
-                        lower: "basement",
-                        basement: "basement"
-                    }
-                };
-                this.room = this.game?.rooms.find((r)=>r.name === "stairs" && r.level === options[dir][currentLevel]);
-            } else if (dir === "search") {
-                this.room === this.room;
-            } else if (dir === "secret") {
-                this.room = this.room.secretTunnel || this.room;
-            } else if (dir === "nav") {
-                this.room = target;
-            } else {
-                this.room = this.room.neighbors[dir];
-            }
-        }
-        const moveEvent = new CustomEvent("playermove", {
-            detail: this
-        });
-        dispatchEvent(moveEvent);
-    }
-    searchRoom = ()=>{};
-    roomPosition;
-    randomizeRoomPosition() {
-        this.roomPosition = new Vector(Math.floor(Math.random() * 26), Math.floor(Math.random() * 24));
-    }
-    path;
-}
 const rooms = [
     {
         name: "bedroom",
@@ -2243,7 +2156,7 @@ class Room {
         let acc = 0;
         while(acc < 1000){
             const weight = Math.random() * 150 + 50;
-            if (Math.random() < .1) {
+            if (Math.random() < .2) {
                 this._lootTable.push({
                     type: "item",
                     item: ITEMS[Math.floor(Math.random() * ITEMS.length)],
@@ -2354,7 +2267,7 @@ class Room {
             case "entrance":
                 return [
                     {
-                        item: MusicBox,
+                        item: Compass,
                         type: "item",
                         weight: 1
                     }
@@ -2543,7 +2456,7 @@ class Room {
             openSet.splice(openSet.indexOf(current), 1);
             const neighbors = current.getNeighbors(includeDiagonal, includeSecretTunnel);
             for (const neighbor of neighbors){
-                const tentativeGScore = gScore[current.getKey()] + this.distance(current, neighbor, includeDiagonal);
+                const tentativeGScore = gScore[current.getKey()] + Room.distance(current, neighbor, includeDiagonal);
                 if (!gScore[neighbor.getKey()] || tentativeGScore < gScore[neighbor.getKey()]) {
                     cameFrom[neighbor.getKey()] = current;
                     gScore[neighbor.getKey()] = tentativeGScore;
@@ -2625,7 +2538,7 @@ class Room {
         }
         return path;
     }
-    distance(room1, room2, includeDiagonal) {
+    static distance(room1, room2, includeDiagonal) {
         if (room1.name === "stairs" && room2.name === "stairs") return 1;
         return includeDiagonal ? new Vector(room1.position.x, room1.position.y, Room.FloorZ[room1.level]).dist(new Vector(room2.position.x, room2.position.y, Room.FloorZ[room2.level])) : Math.abs(room1.position.x - room2.position.x) + Math.abs(room1.position.y - room2.position.y) + Math.abs(Room.FloorZ[room1.level] - Room.FloorZ[room1.level]);
     }
@@ -2635,7 +2548,7 @@ class Room {
         upper: 2
     };
     heuristic(targetRoom, includeDiagonal) {
-        return targetRoom.level === this.level ? this.distance(this, targetRoom, includeDiagonal) : this.distance(this, this.game.stairs[this.level], includeDiagonal);
+        return targetRoom.level === this.level ? Room.distance(this, targetRoom, includeDiagonal) : Room.distance(this, this.game.stairs[this.level], includeDiagonal);
     }
     getKey() {
         return `${this.position.x}-${this.position.y}-${Room.FloorZ[this.level]}`;
@@ -2646,6 +2559,148 @@ const floors = [
     "lower",
     "upper"
 ];
+class Character {
+    name;
+    uuid;
+    _room;
+    get room() {
+        return this._room;
+    }
+    set room(r) {
+        this._room?.characters.delete(this.uuid);
+        this._room = r;
+        this._room.characters.set(this.uuid, this);
+        if (this.uuid === this.game?.player?.uuid) {
+            this.room.known = true;
+            if (!this.game?.isHost) {
+                this.game.floor = this._room.level;
+            }
+        }
+    }
+    game;
+    image;
+    teleportLocation;
+    constructor(name, game){
+        this.name = name;
+        this.uuid = window.crypto.randomUUID();
+        this.image = new Image();
+        switch(this.name){
+            case "ghost":
+                this.image.src = "./assets/images/ghost.png";
+                break;
+            default:
+                this.image.src = "./assets/images/explorer.png";
+        }
+        this.game = game;
+        this.randomizeRoomPosition();
+    }
+    get validSpaces() {
+        const spaces = this.room.doors.map((d)=>[
+                d,
+                this.room?.neighbors[d]
+            ]);
+        if (this.room?.name === "stairs") {
+            const currentLevel = this.room.level;
+            const options = {
+                up: {
+                    basement: "lower",
+                    lower: "upper",
+                    upper: "asdf"
+                },
+                down: {
+                    upper: "lower",
+                    lower: "basement",
+                    basement: "asdf"
+                }
+            };
+            const up = this.game?.rooms.find((r)=>r.name === "stairs" && r.level === options["up"][currentLevel]);
+            const down = this.game?.rooms.find((r)=>r.name === "stairs" && r.level === options["down"][currentLevel]);
+            spaces.push([
+                "up",
+                up
+            ]);
+            spaces.push([
+                "down",
+                down
+            ]);
+        }
+        return spaces.filter((s)=>!!s[1]);
+    }
+    move(dir, target) {
+        this.randomizeRoomPosition();
+        if (dir && this.room.trapCount && dir !== "search" && !this.game.isHost) {
+            this.room === this.room;
+            this.room.trapCount -= 1;
+            const prev = this.game?.dialog?.innerHTML;
+            this.game.dialog.innerHTML = "AAAARRRGH! A BUNCH OF SPIDERS HAVE YOU TRAPPED!";
+            this.game.dialog?.showModal();
+            setTimeout(()=>{
+                this.game.dialog?.close();
+                this.game.dialog.innerHTML = prev || "";
+            }, 3000);
+            !this.game.isHost && this.game.sendMessage({
+                action: "move",
+                playerId: this.uuid,
+                direction: "search",
+                playerName: this.name
+            });
+            this.game.render();
+        } else if (dir) {
+            this.room?.element?.classList.remove("current");
+            if (dir === "up" || dir === "down") {
+                const currentLevel = this.room.level;
+                const options = {
+                    up: {
+                        basement: "lower",
+                        upper: "upper",
+                        lower: "upper"
+                    },
+                    down: {
+                        upper: "lower",
+                        lower: "basement",
+                        basement: "basement"
+                    }
+                };
+                this.room = this.game?.rooms.find((r)=>r.name === "stairs" && r.level === options[dir][currentLevel]);
+            } else if (dir === "search") {
+                this.room === this.room;
+            } else if (dir === "secret") {
+                this.room = this.room.secretTunnel || this.room;
+            } else if (dir === "nav") {
+                this.room = target;
+            } else {
+                this.room = this.room.neighbors[dir];
+            }
+        }
+        const moveEvent = new CustomEvent("playermove", {
+            detail: this
+        });
+        dispatchEvent(moveEvent);
+    }
+    searchRoom = ()=>{};
+    roomPosition;
+    randomizeRoomPosition() {
+        this.roomPosition = new Vector(Math.floor(Math.random() * 26), Math.floor(Math.random() * 24));
+    }
+    path;
+    renderPath(pos) {
+        if (this.path && this.game.isHost) {
+            const path = this.path;
+            doodler.deferDrawing(()=>{
+                doodler.drawScaled(10, ()=>{
+                    let prev = pos.copy().add(16, 16);
+                    for (const step of path){
+                        const next = step.getRoomPos().add(Room.FloorZ[step.level] * this.game.gridSize.x, 0).mult(32).add(16, 16);
+                        doodler.line(prev, next, {
+                            color: "red"
+                        });
+                        prev = next;
+                    }
+                });
+            });
+        }
+    }
+}
 class Player extends Character {
     gatheredTreasures = [];
     knownTreasures = [];
@@ -2788,7 +2843,7 @@ class Player extends Character {
 }
 class Skeleton extends Character {
     frozen = 0;
-    targetRoom;
+    targetRoom = [];
     targetingTurns = 0;
     constructor(index, game){
         super("skeleton", game);
@@ -2796,14 +2851,18 @@ class Skeleton extends Character {
         this.image.src = "./assets/images/skeleton.png";
     }
     navigate() {
-        if (this.targetRoom && this.targetingTurns && !this.path) {
-            this.path = this.room.findPathTo(this.targetRoom);
+        const target = this.targetRoom.sort((a, b)=>Room.distance(this.room, b, true) - Room.distance(this.room, a, true))[0];
+        if (target && this.targetingTurns && (!this.path || this.path.at(-1) !== target)) {
+            this.path = this.room.findPathTo(target);
             this.path?.shift();
         }
         if (this.path && this.path.length && this.targetingTurns) {
             this.room = this.path.shift();
             this.targetingTurns--;
-            if (!this.targetingTurns) this.path = undefined;
+            if (!this.targetingTurns || this.room === target) {
+                this.path = undefined;
+                this.targetRoom = [];
+            }
         } else {
             const validSpaces = this.validSpaces;
             const room = this.room.trapCount || this.frozen ? this.room : this.teleportLocation || validSpaces[Math.floor(Math.random() * validSpaces.length)][1];
@@ -2820,21 +2879,7 @@ class Skeleton extends Character {
                 color: "purple"
             });
         });
-        if (this.path && this.game.isHost) {
-            const path = this.path;
-            doodler.deferDrawing(()=>{
-                doodler.drawScaled(10, ()=>{
-                    let prev = startPos.copy().add(16, 16);
-                    for (const step of path){
-                        const next = step.getRoomPos().add(Room.FloorZ[step.level] * this.game.gridSize.x, 0).mult(32).add(16, 16);
-                        doodler.line(prev, next, {
-                            color: "red"
-                        });
-                        prev = next;
-                    }
-                });
-            });
-        }
+        super.renderPath(startPos);
     }
 }
 class Game {
@@ -3106,7 +3151,7 @@ class Game {
                 this.channel?.send(JSON.stringify({
                     action: "unlock"
                 }));
-            }, 2000);
+            }, 500);
         }
     };
     puppet = new Sockpuppet("wss://sockpuppet.cyborggrizzly.com");
@@ -3219,10 +3264,12 @@ class Game {
                 case "music":
                     {
                         const room = this.rooms.find((r)=>r.uuid === message.roomId);
+                        if (!room) break;
                         for (const skelly of this.skeletons){
-                            skelly.targetRoom = room;
+                            skelly.targetRoom.push(room);
                             skelly.targetingTurns = 5;
                         }
+                        break;
                     }
             }
         });
@@ -3316,7 +3363,6 @@ class Game {
                                 room2.secretTunnel = room1;
                             }
                             this.player.room = this.entrance;
-                            this.entrance.itemChance = 1;
                             this.render();
                             this.init();
                         }
