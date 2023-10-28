@@ -6,10 +6,16 @@ import { imageLibrary } from "../images.ts";
 import { Item } from "./items/Item.ts";
 import {
   Compass,
+  CrystalBall,
   Dice,
+  Hourglass,
+  ITEMS,
+  Lantern,
   Mirror,
+  Painting,
   Quill,
   Skull,
+  SpiderJar,
   Spyglass,
   Thread,
 } from "./items/index.ts";
@@ -46,6 +52,7 @@ export class Room {
   characters: Map<string, Character> = new Map();
 
   _hasTreasure!: boolean;
+  private _lootTable: loot[];
   get hasTreasure() {
     return this._hasTreasure;
   }
@@ -82,12 +89,20 @@ export class Room {
 
     this.game = g;
 
-    // this.itemChance = Math.max(0, Math.random() - .5);
-    this.itemChance = 1;
+    this.itemChance = Math.max(0, Math.random() - .2);
+    // this.itemChance = 1;
 
     this.doorImage = this.level === "basement"
       ? imageLibrary.basementDoor
       : imageLibrary.door;
+
+    const lootNames = [
+      "a coin",
+      "a neat painting",
+      "a bag of marbles",
+      "a broken flashlight",
+      "a cool beetle",
+    ];
 
     switch (this.name) {
       case "hallway":
@@ -100,30 +115,37 @@ export class Room {
         break;
       case "dining room":
         this.image = imageLibrary.diningRoom;
+        lootNames.push("tarninshed silver spoon", "mostly intact China");
         break;
       case "bedroom":
         this.image = imageLibrary.bedroom;
         break;
       case "parlor":
         this.image = imageLibrary.parlor;
+        lootNames.push("a chipped vase", "a ratty old magazine");
         break;
       case "library":
         this.image = imageLibrary.library;
+        lootNames.push("a dusty old book", "a heavy tome");
         break;
       case "cellar":
         this.image = imageLibrary.cellar;
+        lootNames.push("a jar of pickled eyes");
         break;
       case "catacomb":
         this.image = imageLibrary.catacombs;
+        lootNames.push("a headless skeleton");
         break;
       case "alcoves":
         this.image = imageLibrary.alcoves;
+        lootNames.push("a faded painting");
         break;
       case "dungeon":
         this.image = imageLibrary.dungeon;
         break;
       case "entrance":
         this.image = imageLibrary.entrance;
+        this.itemChance = .05;
         break;
       case "stairs":
         switch (this.level) {
@@ -143,10 +165,33 @@ export class Room {
         break;
       case "study":
         this.image = imageLibrary.study;
+        lootNames.push("strongly worded letter");
         break;
       case "game room":
         this.image = imageLibrary.gameRoom;
+        lootNames.push("burned playing card");
         break;
+    }
+
+    this._lootTable = [];
+    let acc = 0;
+    while (acc < 1000) {
+      const weight = (Math.random() * 150) + 50;
+      if (Math.random() < .1) {
+        this._lootTable.push({
+          type: "item",
+          item: ITEMS[Math.floor(Math.random() * ITEMS.length)],
+          weight,
+        });
+      } else {
+        this._lootTable.push({
+          type: "points",
+          name: lootNames[Math.floor(Math.random() * lootNames.length)],
+          weight,
+          value: Math.ceil(Math.random() * 10),
+        });
+      }
+      acc += weight;
     }
     this.rotation = this.name === "entrance"
       ? 0
@@ -241,31 +286,53 @@ export class Room {
 
   get lootTable(): loot[] {
     switch (this.name) {
-      // case "hallway":
-      // case "stairs":
-      // case "dining room":
-      // case "bedroom":
-      // case "parlor":
-      // case "library":
-      // case "cellar":
-      // case "dungeon":
+      case "stairs":
+        return [];
+      case "bedroom":
+        this._lootTable.push({
+          type: "item",
+          item: Mirror,
+          weight: Math.random() * 100 + 10,
+        });
+        break;
+      case "game room":
+        this._lootTable.push({
+          type: "item",
+          item: Dice,
+          weight: Math.random() * 100 + 200,
+        });
+        break;
+      case "study":
+        this._lootTable.push({
+          type: "item",
+          item: Quill,
+          weight: Math.random() * 100 + 50,
+        });
+        break;
+      case "catacomb":
+        this._lootTable.push({
+          type: "item",
+          item: Skull,
+          weight: Math.random() * 100 + 100,
+        });
+        break;
+      case "alcoves":
+        this._lootTable.push({
+          type: "item",
+          item: Painting,
+          weight: Math.random() * 100,
+        });
+        break;
       case "entrance":
         return [
           {
-            item: Mirror,
+            item: Compass,
             type: "item",
             weight: 1,
           },
         ];
-        // case "catacomb":
-        // case "alcoves":
     }
-    return [{
-      type: "points",
-      name: "Golden Banana",
-      value: 20,
-      weight: 1,
-    }];
+    return this._lootTable;
   }
 
   hasBeenSearched = false;
@@ -308,9 +375,11 @@ export class Room {
           }, 3000);
           break;
         }
-        case "item":
-          new loot.item(this.game.player!, this.game);
+        case "item": {
+          const item = new loot.item(this.game.player!, this.game);
+          this.game.player?.addPoints(item.points);
           break;
+        }
       }
     }
     this.game.player?.move("search");
@@ -424,7 +493,7 @@ export class Room {
           this.calculateDistanceToRoom(room) < this.game.player.sight + 1
         ) {
           const r = room;
-          const roomPos = new Vector(r.position.x, r.position.y);
+          const roomPos = r.getRoomPos().mult(32);
           if (this.game.isHost) {
             roomPos.add(Room.FloorZ[r.level] * 32 * this.game.gridSize.x, 0);
           }

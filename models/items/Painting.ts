@@ -19,7 +19,7 @@ export class Painting extends Item {
   }
 
   onPickup(): void {
-    super.onPickup();
+    super.pickup();
     this.player.seesTunnels = true;
   }
 

@@ -27,7 +27,7 @@ export class Dice extends Item {
   };
 
   onPickup(): void {
-    super.onPickup();
+    super.pickup();
     addEventListener("score" as any, this.handler);
   }
 

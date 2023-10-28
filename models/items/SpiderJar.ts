@@ -1,5 +1,5 @@
 import { imageLibrary } from "../../images.ts";
-import { Character, Game, Player } from "../index.ts";
+import { Game, Player } from "../index.ts";
 import { Item } from "./Item.ts";
 
 export class SpiderJar extends Item {
@@ -89,5 +89,11 @@ export class SpiderJar extends Item {
     this.game.dialog.showModal();
 
     return true;
+  }
+
+  onDrop(): void {
+  }
+  onPickup(): void {
+    super.pickup();
   }
 }

@@ -38,8 +38,7 @@ export class Player extends Character {
     return this._score;
   }
   addPoints(s: number, doubleable?: boolean) {
-    this._score += s;
-    this._score = Math.max(0, this._score);
+    this._score = Math.max(0, this._score + s);
     if (doubleable) {
       dispatchEvent(new CustomEvent<number>("score", { detail: s }));
     }
@@ -105,6 +104,9 @@ export class Player extends Character {
 
       if (dir === "c" && !this.room.hasBeenSearched && !this.hasWon) {
         b.disabled = false;
+        b.textContent = this.room.itemChance > 0
+          ? `Search ${Math.floor(this.room.itemChance * 100)}%`
+          : "Search";
       }
       if (dir === "b" && this.item?.usable) {
         b.disabled = false;
@@ -149,6 +151,7 @@ export class Player extends Character {
     ) {
       this.gatheredTreasures.push(this.room);
       audioLibrary.treasure.play();
+      this.addPoints(50);
     }
 
     this.game!.floor = this.room?.level || this.game!.floor;

@@ -1,11 +1,35 @@
-export { Spyglass } from "./Spyglass.ts";
-export { Mirror } from "./Mirror.ts";
-export { Skull } from "./Skull.ts";
-export { CrystalBall } from "./CrystalBall.ts";
-export { SpiderJar } from "./SpiderJar.ts";
-export { Lantern } from "./Lantern.ts";
-export { Hourglass } from "./Hourglass.ts";
-export { Dice } from "./Dice.ts";
-export { Quill } from "./Quill.ts";
-export { Thread } from "./Thread.ts";
-export { Compass } from "./Compass.ts";
+import { Spyglass } from "./Spyglass.ts";
+import { Mirror } from "./Mirror.ts";
+import { Skull } from "./Skull.ts";
+import { CrystalBall } from "./CrystalBall.ts";
+import { SpiderJar } from "./SpiderJar.ts";
+import { Lantern } from "./Lantern.ts";
+import { Hourglass } from "./Hourglass.ts";
+import { Dice } from "./Dice.ts";
+import { Quill } from "./Quill.ts";
+import { Thread } from "./Thread.ts";
+import { Compass } from "./Compass.ts";
+import { Painting } from "./Painting.ts";
+
+export const ITEMS = [
+  Spyglass,
+  CrystalBall,
+  SpiderJar,
+  Lantern,
+  Hourglass,
+  Thread,
+  Compass,
+];
+
+export { Spyglass };
+export { Mirror };
+export { Skull };
+export { CrystalBall };
+export { SpiderJar };
+export { Lantern };
+export { Hourglass };
+export { Dice };
+export { Quill };
+export { Thread };
+export { Compass };
+export { Painting };

@@ -3,7 +3,7 @@ import { Game, Player } from "../index.ts";
 
 type gameEvents = "captured" | "nearby";
 
-export class Item {
+export abstract class Item {
   get usable() {
     return false;
   }
@@ -54,7 +54,7 @@ export class Item {
     };
     const takeBtn = document.createElement("button");
     takeBtn.addEventListener("click", () => {
-      this.onPickup();
+      this.onPickup?.();
       this.game.render();
       close();
     });
@@ -69,12 +69,15 @@ export class Item {
     this.game.dialog?.showModal();
   }
 
-  onPickup() {
-    this.player.item?.onDrop();
+  abstract onPickup(): void;
+  protected pickup() {
+    console.log("item picked up", console.log(this.player));
+    this.player.item?.onDrop?.();
     this.player.item = this;
+    debugger;
   }
 
-  onDrop() {}
+  abstract onDrop(): void;
 
   render() {
     const start = new Vector(0, this.game.gridSize.y).mult(32).add(2, 2);

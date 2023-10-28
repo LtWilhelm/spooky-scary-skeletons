@@ -3,6 +3,11 @@ import { Game, Player, Room } from "../index.ts";
 import { Item } from "./Item.ts";
 
 export class CrystalBall extends Item {
+  onPickup(): void {
+    super.pickup();
+  }
+  onDrop(): void {
+  }
   constructor(player: Player, game: Game) {
     super(
       "Cyrstal Ball",

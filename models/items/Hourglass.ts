@@ -26,7 +26,7 @@ export class Hourglass extends Item {
   };
 
   onPickup(): void {
-    super.onPickup();
+    super.pickup();
     this.player.vision = 1;
   }
   onDrop(): void {

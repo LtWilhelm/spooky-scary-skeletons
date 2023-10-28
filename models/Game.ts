@@ -56,7 +56,7 @@ export class Game {
       lower: undefined,
       basement: undefined,
     };
-    this.skeletonCount = Number(prompt("How many skeletons?") || "5");
+    this.skeletonCount = Number(prompt("How many skeletons?") || "0");
     while (!solvable) {
       const floors: floors[] = ["basement", "lower", "upper"];
       this.grid = new Map();
@@ -111,7 +111,6 @@ export class Game {
             position: { x: entranceX, y: entranceY },
             level: floor,
           }, this);
-          entrance.itemChance = 1;
           entrance.known = true;
 
           this.grid.set(`${entranceX},${entranceY},${floor}`, entrance);
@@ -358,10 +357,10 @@ export class Game {
 
   // TODO: This needs to be refactored now that rooms are aware of characters inside them - this should also be moved to the skeleton class when it gets created
   skeletonCheck = () => {
-    for (const character of this.players) {
-      skellies:
-      for (const skeleton of this.skeletons) {
-        if (skeleton.frozen) continue skellies;
+    for (const skeleton of this.skeletons) {
+      if (skeleton.frozen) continue;
+      for (const character of skeleton.room.characters.entries()) {
+        if (!(character instanceof Player)) return;
         if (
           !character.safe &&
           character.room === skeleton.room
@@ -611,7 +610,6 @@ export class Game {
               room2.secretTunnel = room1;
             }
             this.player!.room = this.rooms.find((r) => r.name === "entrance")!;
-            this.player!.room.itemChance = 1;
             this.render();
             this.init();
           }

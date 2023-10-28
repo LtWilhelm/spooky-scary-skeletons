@@ -1,6 +1,6 @@
 import { Vector } from "doodler";
 import { imageLibrary } from "../../images.ts";
-import { Character, Game, Player, Room } from "../index.ts";
+import { Game, Player, Room } from "../index.ts";
 import { Item } from "./Item.ts";
 
 export class Thread extends Item {
@@ -26,7 +26,7 @@ export class Thread extends Item {
   };
 
   onPickup(): void {
-    super.onPickup();
+    super.pickup();
     addEventListener("playermove", this.handler);
     addEventListener("captured", this.handler);
     this.handler();

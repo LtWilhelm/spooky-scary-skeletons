@@ -1022,7 +1022,7 @@ class Item {
         };
         const takeBtn = document.createElement("button");
         takeBtn.addEventListener("click", ()=>{
-            this.onPickup();
+            this.onPickup?.();
             this.game.render();
             close();
         });
@@ -1035,11 +1035,12 @@ class Item {
         this.game.dialog?.append(document.createElement("br"), takeBtn, leaveBtn);
         this.game.dialog?.showModal();
     }
-    onPickup() {
-        this.player.item?.onDrop();
+    pickup() {
+        console.log("item picked up", console.log(this.player));
+        this.player.item?.onDrop?.();
         this.player.item = this;
+        debugger;
     }
-    onDrop() {}
     render() {
         const start = new Vector(0, this.game.gridSize.y).mult(32).add(2, 2);
         doodler.fillSquare(start, 12, {
@@ -1052,9 +1053,24 @@ class Item {
         });
     }
 }
+class Spyglass extends Item {
+    constructor(player, game){
+        super("Spyglass", Infinity, 5, player, game, `
+      You found a spyglass!
+      This let's you see monsters and players through doors across the map
+      `, imageLibrary.spyglass);
+    }
+    onPickup() {
+        super.pickup();
+        this.player.sight = 6;
+    }
+    onDrop() {
+        this.player.sight = 0;
+    }
+}
 class Mirror extends Item {
     constructor(player, game){
-        super("Mirror", 1, 30, player, game, `
+        super("Mystical Mirror", 1, 30, player, game, `
       A Haunted Mirror!<br>
       Peering through it reveals all monsters
       `, imageLibrary.mirror);
@@ -1064,7 +1080,7 @@ class Mirror extends Item {
         });
     }
     onPickup() {
-        super.onPickup();
+        super.pickup();
         this.player.vision = 10;
         this.player.visionIncludesAllMonsters = true;
     }
@@ -1073,6 +1089,343 @@ class Mirror extends Item {
         this.player.visionIncludesAllMonsters = false;
     }
 }
+class Skull extends Item {
+    constructor(player, game){
+        super("Skull", 1, 10, player, game, `You found a skull!<br>
+      Protects you from skeletons, but they're not likely to fall for it more than once!<br>
+      Let's you see skeletons in neighboring rooms.`, imageLibrary.skull);
+    }
+    onPickup() {
+        super.pickup();
+        this.player.item?.onDrop();
+        this.player.item = this;
+        this.player.safe = true;
+        this.player.vision = 1;
+    }
+    onDrop() {
+        this.player.safe = false;
+        this.player.vision = 0;
+    }
+    use() {
+        if (!super.use()) return false;
+        !this.uses && (this.player.safe = false);
+        return true;
+    }
+}
+class CrystalBall extends Item {
+    onPickup() {
+        super.pickup();
+    }
+    onDrop() {}
+    constructor(player, game){
+        super("Cyrstal Ball", 1, 30, player, game, `
+      The glint of a Crystal Ball catches your eye.<br>
+      The mist within swirls with visions of treasure!<br>
+      Can be used once to find the treasure on the current floor.
+      `, imageLibrary.crystalBall);
+        this.usable;
+    }
+    levelTreasure;
+    get usable() {
+        this.levelTreasure = this.game.rooms.filter((r)=>r.level === this.game.floor).find((r)=>r._hasTreasure);
+        return !!(this.levelTreasure && !this.player.knownTreasures.includes(this.levelTreasure) && this.uses > 0);
+    }
+    use() {
+        if (!super.use() || !this.levelTreasure) return false;
+        this.player.knownTreasures.push(this.levelTreasure);
+        return true;
+    }
+}
+class SpiderJar extends Item {
+    constructor(player, game){
+        super("Spider Jar", 1, 15, player, game, `
+      Ew, a jar full of spiders!
+      Might be useful to slow down your opponents...
+      `, imageLibrary.spiders);
+    }
+    get usable() {
+        return this.uses > 0;
+    }
+    use() {
+        if (!this.uses) return false;
+        const buttons = document.createElement("div");
+        buttons.classList.add("buttons");
+        const prev = this.game.dialog?.innerHTML;
+        const close = ()=>{
+            this.game.dialog?.close();
+            this.game.dialog.innerHTML = prev || "";
+        };
+        for (const door of this.player.room.doors){
+            const room = this.player.room.neighbors[door];
+            if (!room) continue;
+            const button = document.createElement("button");
+            button.dataset.dir = door;
+            button.textContent = door;
+            button.addEventListener("click", ()=>{
+                this.game.sendMessage({
+                    action: "trap",
+                    roomId: room.uuid,
+                    playerId: this.player.uuid,
+                    playerName: this.player.name
+                });
+                this.uses--;
+                this.onDrop();
+                this.player.item = undefined;
+                this.player.move("search");
+                close();
+            });
+            buttons.append(button);
+        }
+        const button = document.createElement("button");
+        button.dataset.dir = "c";
+        button.textContent = "Here";
+        button.addEventListener("click", ()=>{
+            this.game.sendMessage({
+                action: "trap",
+                roomId: this.player.room.uuid,
+                playerId: this.player.uuid,
+                playerName: this.player.name
+            });
+            this.uses--;
+            this.onDrop();
+            this.player.item = undefined;
+            this.player.move("search");
+            close();
+        });
+        buttons.append(button);
+        const cancel = document.createElement("button");
+        cancel.dataset.dir = "b";
+        cancel.textContent = "Nevermind...";
+        cancel.addEventListener("click", ()=>{
+            close();
+        });
+        buttons.append(cancel);
+        this.game.dialog.innerHTML = "Which way would you like to throw the jar of spiders?";
+        this.game.dialog.append(buttons);
+        this.game.dialog.showModal();
+        return true;
+    }
+    onDrop() {}
+    onPickup() {
+        super.pickup();
+    }
+}
+class Lantern extends Item {
+    constructor(p, g){
+        super("Spectral Lantern", Infinity, 15, p, g, `
+      A strange blue lantern catches your eye.
+      The cobwebs in the corners of the room glow brightly when you pick it up.
+      `, imageLibrary.lantern);
+    }
+    onPickup() {
+        super.pickup();
+        this.player.canSeeTraps = true;
+    }
+    onDrop() {
+        this.player.canSeeTraps = false;
+    }
+}
+class Hourglass extends Item {
+    constructor(p, g){
+        super("Bone-sand Hourglass", 2, 30, p, g, `
+      The sound of sand draws your attention to an hourglass.
+      The irregular, bone-colored sand seems to last just long enough for you to move between rooms.
+      Highlights nearby skeletons while held and for 5 turns after using.
+      `, imageLibrary.hourglass);
+    }
+    sandDrops = 5;
+    handleMove = (e)=>{
+        if (e.detail === this.player && !this.sandDrops--) this.onDrop();
+    };
+    onPickup() {
+        super.pickup();
+        this.player.vision = 1;
+    }
+    onDrop() {
+        this.player.vision = 0;
+    }
+    use() {
+        if (!this.uses) return false;
+        this.game.sendMessage({
+            action: "freeze",
+            playerId: this.player.uuid
+        });
+        if (this.uses === 1) {
+            addEventListener("playermove", this.handleMove);
+        }
+        return super.use();
+    }
+    get usable() {
+        return !!this.uses;
+    }
+}
+class Dice extends Item {
+    constructor(p, g){
+        super("Cursed Dice", Infinity, 0, p, g, `
+      The dice on the gaming table glow a sinister red.
+      Are you feeling lucky?
+      `, imageLibrary.dice);
+    }
+    handler = (e)=>{
+        this.player.addPoints(e.detail);
+        this.game.sendMessage({
+            action: "dice",
+            playerId: this.player.uuid
+        });
+    };
+    onPickup() {
+        super.pickup();
+        addEventListener("score", this.handler);
+    }
+    onDrop() {
+        removeEventListener("score", this.handler);
+    }
+}
+class Quill extends Item {
+    onPickup() {
+        super.pickup();
+    }
+    onDrop() {}
+    constructor(p, g){
+        super("Ethereal Quill", 1, 30, p, g, `
+      A ghostly quill floats above the desk.
+      Maybe you could use it draw a door?
+      `, imageLibrary.quill);
+    }
+    get usable() {
+        return !!this.uses && !this.player.room.secretTunnel;
+    }
+    use() {
+        if (!super.use()) return false;
+        while(!this.player.room.secretTunnel){
+            const room = this.game.grid.get(this.game.randomSelector(this.player.room.level));
+            if (!room.secretTunnel) {
+                room.secretTunnel = this.player.room;
+                this.player.room.secretTunnel = room;
+            }
+        }
+        this.player.room.tunnelKnown = true;
+        this.player.room.secretTunnel.tunnelKnown = true;
+        this.player.item = undefined;
+        return true;
+    }
+}
+class Thread extends Item {
+    path;
+    constructor(p, g){
+        super("Spool of Thread", Infinity, 10, p, g, `
+      Someone dropped a spool of thread.
+      It looks like one end was tied to something in a different room. Maybe you could follow it?
+      `, imageLibrary.thread);
+    }
+    handler = ()=>{
+        const entrance = this.game.rooms.find((r)=>r.name === "entrance");
+        this.path = this.player.room.findPathTo(entrance, false, true);
+    };
+    onPickup() {
+        super.pickup();
+        addEventListener("playermove", this.handler);
+        addEventListener("captured", this.handler);
+        this.handler();
+    }
+    onDrop() {
+        removeEventListener("playermove", this.handler);
+        removeEventListener("captured", this.handler);
+    }
+    render() {
+        super.render();
+        if (this.path) {
+            const path = this.path;
+            doodler.deferDrawing(()=>{
+                doodler.drawScaled(10, ()=>{
+                    let prev = new Vector(this.player.room.position.x, this.player.room.position.y).mult(32).add(16, 16);
+                    for (const step of path.filter((r)=>r.level === this.player.room.level)){
+                        const next = new Vector(step.position.x, step.position.y).mult(32).add(16, 16);
+                        doodler.line(prev, next, {
+                            color: "red"
+                        });
+                        prev = next;
+                    }
+                });
+            });
+        }
+    }
+}
+class Compass extends Item {
+    path;
+    constructor(p, g){
+        super("Spectral Compass", 3, 50, p, g, `
+      The glint of this ghostly compass catches your eye.
+      The needle flickers in and out of existence. It seems to point to your desires!
+      `, imageLibrary.compass);
+    }
+    handler = ()=>{
+        console.log("pathing");
+        const floor = this.player.room.level;
+        const target = this.player.gatheredTreasures.includes(this.game.treasureRooms[floor]) ? this.game.stairs[floor] : this.game.treasureRooms[floor];
+        this.path = this.player.room.findPathTo(target, false, true);
+        for (const __char of this.player.room.characters.values()){
+            if (__char.name === "skeleton") {
+                this.use();
+                if (this.uses < 1) {
+                    this.onDrop();
+                    this.player.item = undefined;
+                }
+            }
+        }
+    };
+    onPickup() {
+        this.player.safe = true;
+        this.player.vision = 1;
+        addEventListener("playermove", this.handler);
+        addEventListener("captured", this.handler);
+        this.handler();
+        super.pickup();
+    }
+    onDrop() {
+        removeEventListener("playermove", this.handler);
+        removeEventListener("captured", this.handler);
+        this.player.safe = false;
+        this.player.vision = 0;
+    }
+    render() {
+        super.render();
+        if (this.path) {
+            const center = new Vector(0, this.game.gridSize.y).mult(32).add(8, 7);
+            const [current, next] = this.path;
+            if (!current || !next) return;
+            const dir = new Vector(next.position.x, next.position.y).sub(current.position.x, current.position.y);
+            dir.setMag(4);
+            doodler.line(center, center.copy().add(dir), {
+                color: "black"
+            });
+        }
+    }
+}
+class Painting extends Item {
+    constructor(p, g){
+        super("Suspicious Painting", Infinity, 10, p, g, `
+      The sheet falls from the corner of a suspicious painting of a door.
+      Looking at it, you get the feeling that you've seen the room before...
+      `, imageLibrary.painting);
+    }
+    onPickup() {
+        super.pickup();
+        this.player.seesTunnels = true;
+    }
+    onDrop() {
+        this.player.seesTunnels = false;
+    }
+}
+const ITEMS = [
+    Spyglass,
+    CrystalBall,
+    SpiderJar,
+    Lantern,
+    Hourglass,
+    Thread,
+    Compass
+];
 class Channel {
     id;
     socket;
@@ -1517,6 +1870,7 @@ class Room {
     doors;
     characters = new Map();
     _hasTreasure;
+    _lootTable;
     get hasTreasure() {
         return this._hasTreasure;
     }
@@ -1542,8 +1896,15 @@ class Room {
         this.image = new Image(32, 32);
         this.doorImage = new Image(32, 32);
         this.game = g;
-        this.itemChance = 1;
+        this.itemChance = Math.max(0, Math.random() - .2);
         this.doorImage = this.level === "basement" ? imageLibrary.basementDoor : imageLibrary.door;
+        const lootNames = [
+            "a coin",
+            "a neat painting",
+            "a bag of marbles",
+            "a broken flashlight",
+            "a cool beetle"
+        ];
         switch(this.name){
             case "hallway":
                 this.image = this.level !== "basement" ? imageLibrary.hallway : imageLibrary.basementHallway;
@@ -1551,30 +1912,37 @@ class Room {
                 break;
             case "dining room":
                 this.image = imageLibrary.diningRoom;
+                lootNames.push("tarninshed silver spoon", "mostly intact China");
                 break;
             case "bedroom":
                 this.image = imageLibrary.bedroom;
                 break;
             case "parlor":
                 this.image = imageLibrary.parlor;
+                lootNames.push("a chipped vase", "a ratty old magazine");
                 break;
             case "library":
                 this.image = imageLibrary.library;
+                lootNames.push("a dusty old book", "a heavy tome");
                 break;
             case "cellar":
                 this.image = imageLibrary.cellar;
+                lootNames.push("a jar of pickled eyes");
                 break;
             case "catacomb":
                 this.image = imageLibrary.catacombs;
+                lootNames.push("a headless skeleton");
                 break;
             case "alcoves":
                 this.image = imageLibrary.alcoves;
+                lootNames.push("a faded painting");
                 break;
             case "dungeon":
                 this.image = imageLibrary.dungeon;
                 break;
             case "entrance":
                 this.image = imageLibrary.entrance;
+                this.itemChance = .05;
                 break;
             case "stairs":
                 switch(this.level){
@@ -1592,10 +1960,32 @@ class Room {
                 break;
             case "study":
                 this.image = imageLibrary.study;
+                lootNames.push("strongly worded letter");
                 break;
             case "game room":
                 this.image = imageLibrary.gameRoom;
+                lootNames.push("burned playing card");
                 break;
+        }
+        this._lootTable = [];
+        let acc = 0;
+        while(acc < 1000){
+            const weight = Math.random() * 150 + 50;
+            if (Math.random() < .1) {
+                this._lootTable.push({
+                    type: "item",
+                    item: ITEMS[Math.floor(Math.random() * ITEMS.length)],
+                    weight
+                });
+            } else {
+                this._lootTable.push({
+                    type: "points",
+                    name: lootNames[Math.floor(Math.random() * lootNames.length)],
+                    weight,
+                    value: Math.ceil(Math.random() * 10)
+                });
+            }
+            acc += weight;
         }
         this.rotation = this.name === "entrance" ? 0 : 2 * Math.PI * (Math.floor(Math.random() * 4) / 4);
     }
@@ -1652,23 +2042,53 @@ class Room {
     }
     get lootTable() {
         switch(this.name){
+            case "stairs":
+                return [];
+            case "bedroom":
+                this._lootTable.push({
+                    type: "item",
+                    item: Mirror,
+                    weight: Math.random() * 100 + 10
+                });
+                break;
+            case "game room":
+                this._lootTable.push({
+                    type: "item",
+                    item: Dice,
+                    weight: Math.random() * 100 + 200
+                });
+                break;
+            case "study":
+                this._lootTable.push({
+                    type: "item",
+                    item: Quill,
+                    weight: Math.random() * 100 + 50
+                });
+                break;
+            case "catacomb":
+                this._lootTable.push({
+                    type: "item",
+                    item: Skull,
+                    weight: Math.random() * 100 + 100
+                });
+                break;
+            case "alcoves":
+                this._lootTable.push({
+                    type: "item",
+                    item: Painting,
+                    weight: Math.random() * 100
+                });
+                break;
             case "entrance":
                 return [
                     {
-                        item: Mirror,
+                        item: Compass,
                         type: "item",
                         weight: 1
                     }
                 ];
         }
-        return [
-            {
-                type: "points",
-                name: "Golden Banana",
-                value: 20,
-                weight: 1
-            }
-        ];
+        return this._lootTable;
     }
     hasBeenSearched = false;
     get tunnelMessage() {
@@ -1708,8 +2128,11 @@ class Room {
                         break;
                     }
                 case "item":
-                    new loot.item(this.game.player, this.game);
-                    break;
+                    {
+                        const item = new loot.item(this.game.player, this.game);
+                        this.game.player?.addPoints(item.points);
+                        break;
+                    }
             }
         }
         this.game.player?.move("search");
@@ -1783,7 +2206,7 @@ class Room {
                 let room = this.neighbors[door];
                 while(room && this.calculateDistanceToRoom(room) < this.game.player.sight + 1){
                     const r = room;
-                    const roomPos = new Vector(r.position.x, r.position.y);
+                    const roomPos = r.getRoomPos().mult(32);
                     if (this.game.isHost) {
                         roomPos.add(Room.FloorZ[r.level] * 32 * this.game.gridSize.x, 0);
                     }
@@ -1981,8 +2404,7 @@ class Player extends Character {
         return this._score;
     }
     addPoints(s, doubleable) {
-        this._score += s;
-        this._score = Math.max(0, this._score);
+        this._score = Math.max(0, this._score + s);
         if (doubleable) {
             dispatchEvent(new CustomEvent("score", {
                 detail: s
@@ -2035,6 +2457,7 @@ class Player extends Character {
             }
             if (dir === "c" && !this.room.hasBeenSearched && !this.hasWon) {
                 b.disabled = false;
+                b.textContent = this.room.itemChance > 0 ? `Search ${Math.floor(this.room.itemChance * 100)}%` : "Search";
             }
             if (dir === "b" && this.item?.usable) {
                 b.disabled = false;
@@ -2067,6 +2490,7 @@ class Player extends Character {
         if (this.room?.hasTreasure && !this.gatheredTreasures.includes(this.room)) {
             this.gatheredTreasures.push(this.room);
             audioLibrary.treasure.play();
+            this.addPoints(50);
         }
         this.game.floor = this.room?.level || this.game.floor;
     }
@@ -2153,7 +2577,7 @@ class Game {
             lower: undefined,
             basement: undefined
         };
-        this.skeletonCount = Number(prompt("How many skeletons?") || "5");
+        this.skeletonCount = Number(prompt("How many skeletons?") || "0");
         while(!solvable){
             const floors = [
                 "basement",
@@ -2212,7 +2636,6 @@ class Game {
                         },
                         level: floor
                     }, this);
-                    entrance.itemChance = 1;
                     entrance.known = true;
                     this.grid.set(`${entranceX},${entranceY},${floor}`, entrance);
                     this.entranceD = {
@@ -2351,9 +2774,10 @@ class Game {
     };
     randomSelector = (floor)=>`${Math.floor(Math.random() * this.gridSize.x)},${Math.floor(Math.random() * this.gridSize.y)},${floor || floors[Math.floor(Math.random() * floors.length)]}`;
     skeletonCheck = ()=>{
-        for (const character of this.players){
-            skellies: for (const skeleton of this.skeletons){
-                if (skeleton.frozen) continue skellies;
+        for (const skeleton of this.skeletons){
+            if (skeleton.frozen) continue;
+            for (const character of skeleton.room.characters.entries()){
+                if (!(character instanceof Player)) return;
                 if (!character.safe && character.room === skeleton.room) {
                     character.room = this.rooms.find((r)=>r.name === "dungeon");
                     this.channel?.send(JSON.stringify({
@@ -2585,7 +3009,6 @@ class Game {
                                 room2.secretTunnel = room1;
                             }
                             this.player.room = this.rooms.find((r)=>r.name === "entrance");
-                            this.player.room.itemChance = 1;
                             this.render();
                             this.init();
                         }

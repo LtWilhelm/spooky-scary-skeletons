@@ -19,7 +19,7 @@ export class Spyglass extends Item {
   }
 
   onPickup(): void {
-    super.onPickup();
+    super.pickup();
     this.player.sight = 6;
   }
 

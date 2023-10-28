@@ -21,6 +21,7 @@ export class Compass extends Item {
   }
 
   handler = () => {
+    console.log("pathing");
     const floor = this.player.room.level;
     const target =
       this.player.gatheredTreasures.includes(this.game.treasureRooms[floor])
@@ -29,7 +30,7 @@ export class Compass extends Item {
     this.path = this.player.room.findPathTo(target, false, true);
 
     for (const char of this.player.room.characters.values()) {
-      if (char.name !== "skeleton") {
+      if (char.name === "skeleton") {
         this.use();
         if (this.uses < 1) {
           this.onDrop();
@@ -40,12 +41,12 @@ export class Compass extends Item {
   };
 
   onPickup(): void {
-    super.onPickup();
     this.player.safe = true;
     this.player.vision = 1;
     addEventListener("playermove", this.handler);
     addEventListener("captured", this.handler);
     this.handler();
+    super.pickup();
   }
   onDrop(): void {
     removeEventListener("playermove", this.handler);
@@ -66,8 +67,8 @@ export class Compass extends Item {
       );
       dir.setMag(4);
       doodler.line(center, center.copy().add(dir), {
-        color: "lime",
-        weight: .8,
+        color: "black",
+        // weight: .8,
       });
     }
   }

@@ -1,8 +1,13 @@
 import { imageLibrary } from "../../images.ts";
-import { Character, Game, Player } from "../index.ts";
+import { Game, Player } from "../index.ts";
 import { Item } from "./Item.ts";
 
 export class Quill extends Item {
+  onPickup(): void {
+    super.pickup();
+  }
+  onDrop(): void {
+  }
   constructor(p: Player, g: Game) {
     super(
       "Ethereal Quill",

@@ -1,11 +1,11 @@
 import { imageLibrary } from "../../images.ts";
-import { Character, Game, Player } from "../index.ts";
+import { Game, Player } from "../index.ts";
 import { Item } from "./Item.ts";
 
 export class Mirror extends Item {
   constructor(player: Player, game: Game) {
     super(
-      "Mirror",
+      "Mystical Mirror",
       1,
       30,
       player,
@@ -24,7 +24,7 @@ export class Mirror extends Item {
   }
 
   onPickup(): void {
-    super.onPickup();
+    super.pickup();
     this.player.vision = 10;
     this.player.visionIncludesAllMonsters = true;
   }
