@@ -5,12 +5,12 @@ import { Room } from "./Room.ts";
 import { Sockpuppet } from "sockpuppet/mod.ts";
 import { Channel } from "sockpuppet/Channel.ts";
 import { solver } from "../solver.ts";
-import { initializeDoodler } from "doodler";
-import { Vector } from "https://git.cyborggrizzly.com/emma/doodler/raw/tag/0.0.9d/geometry/vector.ts";
+import { initializeDoodler, Vector } from "doodler";
 import { imageLibrary } from "../images.ts";
 import { Skeleton } from "./Skeleton.ts";
 import { Player } from "./Player.ts";
 import { audioLibrary, playRandom } from "../sounds.ts";
+import { ZoomableDoodler } from "doodler/zoomableCanvas.ts";
 
 export class Game {
   rooms: Room[] = [];
@@ -806,6 +806,30 @@ export class Game {
       c.font = "32px spk";
       const pos = new Vector(12, 12);
       for (const player of this.players) {
+        const [gamepad] = navigator.getGamepads();
+        if (gamepad) {
+          const d = doodler as unknown as ZoomableDoodler;
+          const [leftX, leftY] = gamepad.axes;
+          const deadzone = 0.04;
+
+          d.moveOrigin({
+            x: Math.min(Math.max(leftX - deadzone, 0), leftX + deadzone) * -15,
+            y: Math.min(Math.max(leftY - deadzone, 0), leftY + deadzone) * -15,
+          });
+
+          if (gamepad.buttons[7].value) {
+            d.scaleAt(
+              d.screenToWorld(c.canvas.width / 2, c.canvas.height / 2),
+              1 + (gamepad.buttons[7].value / 20),
+            );
+          }
+          if (gamepad.buttons[6].value) {
+            d.scaleAt(
+              d.screenToWorld(c.canvas.width / 2, c.canvas.height / 2),
+              1 - (gamepad.buttons[6].value / 20),
+            );
+          }
+        }
         doodler.fillText(
           player.name,
           pos.copy().add(2, 2),

@@ -773,6 +773,13 @@ class ZoomableDoodler extends Doodler {
         this.origin.y = p.y - (p.y - this.origin.y) * scaleBy;
         this.constrainOrigin();
     }
+    moveOrigin(motion) {
+        if (this.scale > 1) {
+            this.origin.x += motion.x;
+            this.origin.y += motion.y;
+            this.constrainOrigin();
+        }
+    }
     drag(prev) {
         if (this.scale > 1) {
             const xOffset = this.mouse.x - prev.x;
@@ -978,6 +985,243 @@ const imageLibrary = {
     study,
     gameRoom
 };
+const Constants1 = {
+    TWO_PI: Math.PI * 2
+};
+class Vector1 {
+    x;
+    y;
+    z;
+    constructor(x = 0, y = 0, z = 0){
+        this.x = x;
+        this.y = y;
+        this.z = z;
+    }
+    set(v, y, z) {
+        if (arguments.length === 1 && typeof v !== "number") {
+            this.set(v.x || v[0] || 0, v.y || v[1] || 0, v.z || v[2] || 0);
+        } else {
+            this.x = v;
+            this.y = y || 0;
+            this.z = z || 0;
+        }
+    }
+    get() {
+        return new Vector1(this.x, this.y, this.z);
+    }
+    mag() {
+        const x = this.x, y = this.y, z = this.z;
+        return Math.sqrt(x * x + y * y + z * z);
+    }
+    magSq() {
+        const x = this.x, y = this.y, z = this.z;
+        return x * x + y * y + z * z;
+    }
+    setMag(v_or_len, len) {
+        if (len === undefined) {
+            len = v_or_len;
+            this.normalize();
+            this.mult(len);
+        } else {
+            const v = v_or_len;
+            v.normalize();
+            v.mult(len);
+            return v;
+        }
+    }
+    add(v, y, z) {
+        if (arguments.length === 1 && typeof v !== 'number') {
+            this.x += v.x;
+            this.y += v.y;
+            this.z += v.z;
+        } else if (arguments.length === 2) {
+            this.x += v;
+            this.y += y ?? 0;
+        } else {
+            this.x += v;
+            this.y += y ?? 0;
+            this.z += z ?? 0;
+        }
+        return this;
+    }
+    sub(v, y, z) {
+        if (arguments.length === 1 && typeof v !== 'number') {
+            this.x -= v.x;
+            this.y -= v.y;
+            this.z -= v.z;
+        } else if (arguments.length === 2) {
+            this.x -= v;
+            this.y -= y ?? 0;
+        } else {
+            this.x -= v;
+            this.y -= y ?? 0;
+            this.z -= z ?? 0;
+        }
+        return this;
+    }
+    mult(v) {
+        if (typeof v === 'number') {
+            this.x *= v;
+            this.y *= v;
+            this.z *= v;
+        } else {
+            this.x *= v.x;
+            this.y *= v.y;
+            this.z *= v.z;
+        }
+        return this;
+    }
+    div(v) {
+        if (typeof v === 'number') {
+            this.x /= v;
+            this.y /= v;
+            this.z /= v;
+        } else {
+            this.x /= v.x;
+            this.y /= v.y;
+            this.z /= v.z;
+        }
+        return this;
+    }
+    rotate(angle) {
+        const prev_x = this.x;
+        const c = Math.cos(angle);
+        const s = Math.sin(angle);
+        this.x = c * this.x - s * this.y;
+        this.y = s * prev_x + c * this.y;
+        return this;
+    }
+    dist(v) {
+        const dx = this.x - v.x, dy = this.y - v.y, dz = this.z - v.z;
+        return Math.sqrt(dx * dx + dy * dy + dz * dz);
+    }
+    dot(v, y, z) {
+        if (arguments.length === 1 && typeof v !== 'number') {
+            return this.x * v.x + this.y * v.y + this.z * v.z;
+        }
+        return this.x * v + this.y * y + this.z * z;
+    }
+    cross(v) {
+        const x = this.x, y = this.y, z = this.z;
+        return new Vector1(y * v.z - v.y * z, z * v.x - v.z * x, x * v.y - v.x * y);
+    }
+    lerp(v_or_x, amt_or_y, z, amt) {
+        const lerp_val = (start, stop, amt)=>{
+            return start + (stop - start) * amt;
+        };
+        let x, y;
+        if (arguments.length === 2 && typeof v_or_x !== 'number') {
+            amt = amt_or_y;
+            x = v_or_x.x;
+            y = v_or_x.y;
+            z = v_or_x.z;
+        } else {
+            x = v_or_x;
+            y = amt_or_y;
+        }
+        this.x = lerp_val(this.x, x, amt);
+        this.y = lerp_val(this.y, y, amt);
+        this.z = lerp_val(this.z, z, amt);
+        return this;
+    }
+    normalize() {
+        const m = this.mag();
+        if (m > 0) {
+            this.div(m);
+        }
+        return this;
+    }
+    limit(high) {
+        if (this.mag() > high) {
+            this.normalize();
+            this.mult(high);
+        }
+        return this;
+    }
+    heading() {
+        return -Math.atan2(-this.y, this.x);
+    }
+    heading2D() {
+        return this.heading();
+    }
+    toString() {
+        return "[" + this.x + ", " + this.y + ", " + this.z + "]";
+    }
+    array() {
+        return [
+            this.x,
+            this.y,
+            this.z
+        ];
+    }
+    copy() {
+        return new Vector1(this.x, this.y, this.z);
+    }
+    drawDot() {
+        if (!doodler) return;
+        doodler.dot(this, {
+            weight: 2,
+            color: 'red'
+        });
+    }
+    static fromAngle(angle, v) {
+        if (v === undefined || v === null) {
+            v = new Vector1();
+        }
+        v.x = Math.cos(angle);
+        v.y = Math.sin(angle);
+        return v;
+    }
+    static random2D(v) {
+        return Vector1.fromAngle(Math.random() * (Math.PI * 2), v);
+    }
+    static random3D(v) {
+        const angle = Math.random() * Constants1.TWO_PI;
+        const vz = Math.random() * 2 - 1;
+        const mult = Math.sqrt(1 - vz * vz);
+        const vx = mult * Math.cos(angle);
+        const vy = mult * Math.sin(angle);
+        if (v === undefined || v === null) {
+            v = new Vector1(vx, vy, vz);
+        } else {
+            v.set(vx, vy, vz);
+        }
+        return v;
+    }
+    static dist(v1, v2) {
+        return v1.dist(v2);
+    }
+    static dot(v1, v2) {
+        return v1.dot(v2);
+    }
+    static cross(v1, v2) {
+        return v1.cross(v2);
+    }
+    static add(v1, v2) {
+        return new Vector1(v1.x + v2.x, v1.y + v2.y, v1.z + v2.z);
+    }
+    static sub(v1, v2) {
+        return new Vector1(v1.x - v2.x, v1.y - v2.y, v1.z - v2.z);
+    }
+    static angleBetween(v1, v2) {
+        return Math.acos(v1.dot(v2) / Math.sqrt(v1.magSq() * v2.magSq()));
+    }
+    static lerp(v1, v2, amt) {
+        const retval = new Vector1(v1.x, v1.y, v1.z);
+        retval.lerp(v2, amt);
+        return retval;
+    }
+    static vectorProjection(v1, v2) {
+        v2 = v2.copy();
+        v2.normalize();
+        const sp = v1.dot(v2);
+        v2.mult(sp);
+        return v2;
+    }
+    static hypot2(a, b) {
+        return Vector1.dot(Vector1.sub(a, b), Vector1.sub(a, b));
+    }
+}
 class Item {
     name;
     uses;
@@ -1042,7 +1286,7 @@ class Item {
         debugger;
     }
     render() {
-        const start = new Vector(0, this.game.gridSize.y).mult(32).add(2, 2);
+        const start = new Vector1(0, this.game.gridSize.y).mult(32).add(2, 2);
         doodler.fillSquare(start, 12, {
             fillColor: "#00000050"
         });
@@ -3230,6 +3474,21 @@ class Game {
             c.font = "32px spk";
             const pos = new Vector(12, 12);
             for (const player of this.players){
+                const [gamepad] = navigator.getGamepads();
+                if (gamepad) {
+                    const d = doodler;
+                    const [leftX, leftY] = gamepad.axes;
+                    d.moveOrigin({
+                        x: Math.min(Math.max(leftX - 0.04, 0), leftX + 0.04) * -15,
+                        y: Math.min(Math.max(leftY - 0.04, 0), leftY + 0.04) * -15
+                    });
+                    if (gamepad.buttons[7].value) {
+                        d.scaleAt(d.screenToWorld(c.canvas.width / 2, c.canvas.height / 2), 1 + gamepad.buttons[7].value / 20);
+                    }
+                    if (gamepad.buttons[6].value) {
+                        d.scaleAt(d.screenToWorld(c.canvas.width / 2, c.canvas.height / 2), 1 - gamepad.buttons[6].value / 20);
+                    }
+                }
                 doodler.fillText(player.name, pos.copy().add(2, 2), c.canvas.width / 3, {
                     fillColor: "purple",
                     textBaseline: "top"
