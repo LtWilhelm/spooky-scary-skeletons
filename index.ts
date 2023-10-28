@@ -8,13 +8,15 @@ const init = () => {
   if (buttonContainer) {
     const hostButton = document.createElement("button");
     hostButton.textContent = "Host";
-    hostButton.dataset.dir = "west";
+    hostButton.dataset.dir = "c";
     hostButton.addEventListener("click", host);
     const joinButton = document.createElement("button");
     joinButton.textContent = "Join";
-    joinButton.dataset.dir = "east";
+    joinButton.dataset.dir = "c";
     joinButton.addEventListener("click", join);
-    buttonContainer.append(hostButton, joinButton);
+    location.pathname.includes("host")
+      ? buttonContainer.append(hostButton)
+      : buttonContainer.append(joinButton);
   }
 };
 

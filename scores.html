@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Spooky Scary Skeletons</title>
+  <link rel="shortcut icon" href="./assets/images/skeleton.png" type="image/x-icon">
+  <link rel="stylesheet" href="./assets/style.css">
+
+  <style>
+    body {
+      padding: 0;
+    }
+
+    container {
+      display: grid;
+      width: 100%;
+      height: 100vh;
+      justify-content: center;
+      place-items: center;
+    }
+
+    .hidden {
+      display: none;
+      opacity: 0;
+    }
+
+    /* Temp */
+    canvas {
+      max-width: 100%;
+      max-height: unset;
+      margin: auto;
+    }
+
+    * {
+      image-rendering: optimizeSpeed;
+      /* Older versions of FF          */
+      image-rendering: -moz-crisp-edges;
+      /* FF 6.0+                       */
+      image-rendering: -webkit-optimize-contrast;
+      /* Safari                        */
+      image-rendering: -o-crisp-edges;
+      /* OS X & Windows Opera (12.02+) */
+      image-rendering: pixelated;
+      /* Awesome future-browsers       */
+      -ms-interpolation-mode: nearest-neighbor;
+      /* IE  */
+
+    }
+  </style>
+</head>
+
+<body>
+
+  <container>
+    <div class="border">
+      <canvas></canvas>
+    </div>
+  </container>
+
+  <script src="./bundle.js"></script>
+  <script>
+    game.startScoreboard()
+  </script>
+</body>
+
+</html>

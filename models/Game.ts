@@ -439,6 +439,11 @@ export class Game {
             map,
           }));
           this.sendRoom(char.room.uuid, char.uuid);
+          this.sendMessage({
+            action: "scoreboard",
+            charsInRoom: this.players.map((c) => `${c.uuid},${c.name}`),
+            playerId: char.uuid,
+          });
           break;
         }
         case "move": {
@@ -711,7 +716,12 @@ export class Game {
 
   initDoodler = (
     bg: string,
-    { height, width }: { height: number; width: number },
+    { height, width, framerate = 5 }: {
+      height: number;
+      width: number;
+      framerate?: number;
+    },
+    zoom?: boolean,
   ) => {
     if (window.doodler) return;
     initializeDoodler(
@@ -720,9 +730,9 @@ export class Game {
         width: width,
         canvas: document.querySelector("canvas") as HTMLCanvasElement,
         bg,
-        framerate: 5,
+        framerate,
       },
-      false,
+      zoom || false,
       (ctx) => {
         ctx.imageSmoothingEnabled = false;
         ctx.font = "12px spk";
@@ -778,6 +788,77 @@ export class Game {
       }, time);
     }
   }
+
+  startScoreboard() {
+    this.initDoodler("#00000050", {
+      width: document.body.clientWidth * .9,
+      height: document.body.clientHeight * .9,
+      framerate: 40,
+    }, true);
+    doodler.createLayer((c) => {
+      c.font = "32px spk";
+      const pos = new Vector(12, 12);
+      for (const player of this.players) {
+        doodler.fillText(
+          player.name,
+          pos.copy().add(2, 2),
+          c.canvas.width / 3,
+          {
+            fillColor: "purple",
+            textBaseline: "top",
+          },
+        );
+        doodler.fillText(player.name, pos, c.canvas.width / 3, {
+          fillColor: "orange",
+          textBaseline: "top",
+        });
+        const scorePos = pos.copy().add(c.canvas.width / 3, 0);
+        doodler.fillText(
+          player.score + " points",
+          scorePos.copy().add(2, 2),
+          c.canvas.width / 3,
+          {
+            fillColor: "purple",
+            textBaseline: "top",
+          },
+        );
+        doodler.fillText(
+          player.score + " points",
+          scorePos,
+          c.canvas.width / 3,
+          {
+            fillColor: "orange",
+            textBaseline: "top",
+          },
+        );
+        pos.add(0, 36);
+      }
+    });
+    const channelId = "spooky_scary_skeletons";
+
+    this.puppet.joinChannel(channelId, (msg) => {
+      const message = JSON.parse(msg) as socketPacket;
+
+      switch (message.action) {
+        case "scoreboard": {
+          this.players = message.charsInRoom!.map((c) => {
+            const [uuid, name] = c.split(",");
+            const player = new Player(name, this);
+            player.uuid = uuid;
+            return player;
+          });
+          break;
+        }
+        case "score": {
+          const player = this.players.find((p) => p.uuid === message.playerId!);
+          if (!player) break;
+
+          player._score = message.score || 0;
+          break;
+        }
+      }
+    });
+  }
 }
 
 interface socketPacket {
@@ -795,6 +876,7 @@ interface socketPacket {
     | "trap"
     | "freeze"
     | "dice"
+    | "scoreboard"
     | "score";
   playerId: string;
   playerName?: string;
