@@ -10,7 +10,7 @@ import { Vector } from "https://git.cyborggrizzly.com/emma/doodler/raw/tag/0.0.9
 import { imageLibrary } from "../images.ts";
 import { Skeleton } from "./Skeleton.ts";
 import { Player } from "./Player.ts";
-import { playRandom } from "../sounds.ts";
+import { audioLibrary, playRandom } from "../sounds.ts";
 
 export class Game {
   rooms: Room[] = [];
@@ -357,10 +357,10 @@ export class Game {
 
   // TODO: This needs to be refactored now that rooms are aware of characters inside them - this should also be moved to the skeleton class when it gets created
   skeletonCheck = () => {
-    for (const skeleton of this.skeletons) {
-      if (skeleton.frozen) continue;
-      for (const character of skeleton.room.characters.entries()) {
-        if (!(character instanceof Player)) return;
+    for (const character of this.players) {
+      skellies:
+      for (const skeleton of this.skeletons) {
+        if (skeleton.frozen) continue skellies;
         if (
           !character.safe &&
           character.room === skeleton.room
@@ -843,6 +843,13 @@ export class Game {
     });
     const channelId = "spooky_scary_skeletons";
 
+    document.addEventListener("click", () => {
+      audioLibrary.spookyDrone1.loop = true;
+      audioLibrary.spookyDrone2.loop = true;
+      audioLibrary.spookyDrone1.play();
+      audioLibrary.spookyDrone2.play();
+    });
+
     this.puppet.joinChannel(channelId, (msg) => {
       const message = JSON.parse(msg) as socketPacket;
 
@@ -862,6 +869,13 @@ export class Game {
 
           player._score = message.score || 0;
           break;
+        }
+        case "music": {
+          audioLibrary.musicBox.play();
+          break;
+        }
+        case "captured": {
+          playRandom("spookyLaugh1", "spookyLaugh2");
         }
       }
     });

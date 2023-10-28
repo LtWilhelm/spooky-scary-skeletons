@@ -28,16 +28,16 @@ export class MusicBox extends Item {
   }
 
   use(): boolean {
-    if (!super.use()) return false;
-
+    if (!this.uses) {
+      this.player.item = undefined;
+      return false;
+    }
     this.game.sendMessage({
       action: "music",
       roomId: this.player.room.uuid,
       playerId: this.player.uuid,
     });
 
-    if (!this.uses) this.player.item = undefined;
-
-    return true;
+    return super.use();
   }
 }

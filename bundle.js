@@ -1432,14 +1432,16 @@ class MusicBox extends Item {
         return !!this.uses;
     }
     use() {
-        if (!super.use()) return false;
+        if (!this.uses) {
+            this.player.item = undefined;
+            return false;
+        }
         this.game.sendMessage({
             action: "music",
             roomId: this.player.room.uuid,
             playerId: this.player.uuid
         });
-        if (!this.uses) this.player.item = undefined;
-        return true;
+        return super.use();
     }
 }
 const ITEMS = [
@@ -2827,10 +2829,9 @@ class Game {
     };
     randomSelector = (floor)=>`${Math.floor(Math.random() * this.gridSize.x)},${Math.floor(Math.random() * this.gridSize.y)},${floor || floors[Math.floor(Math.random() * floors.length)]}`;
     skeletonCheck = ()=>{
-        for (const skeleton of this.skeletons){
-            if (skeleton.frozen) continue;
-            for (const character of skeleton.room.characters.entries()){
-                if (!(character instanceof Player)) return;
+        for (const character of this.players){
+            skellies: for (const skeleton of this.skeletons){
+                if (skeleton.frozen) continue skellies;
                 if (!character.safe && character.room === skeleton.room) {
                     character.room = this.rooms.find((r)=>r.name === "dungeon");
                     this.channel?.send(JSON.stringify({
@@ -3250,6 +3251,12 @@ class Game {
             }
         });
         const channelId = "spooky_scary_skeletons";
+        document.addEventListener("click", ()=>{
+            audioLibrary.spookyDrone1.loop = true;
+            audioLibrary.spookyDrone2.loop = true;
+            audioLibrary.spookyDrone1.play();
+            audioLibrary.spookyDrone2.play();
+        });
         this.puppet.joinChannel(channelId, (msg)=>{
             const message = JSON.parse(msg);
             switch(message.action){
@@ -3269,6 +3276,15 @@ class Game {
                         if (!player) break;
                         player._score = message.score || 0;
                         break;
+                    }
+                case "music":
+                    {
+                        audioLibrary.musicBox.play();
+                        break;
+                    }
+                case "captured":
+                    {
+                        playRandom("spookyLaugh1", "spookyLaugh2");
                     }
             }
         });
