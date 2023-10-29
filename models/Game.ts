@@ -47,7 +47,7 @@ export class Game {
   treasureRooms!: Record<floors, Room>;
 
   constructor() {
-    this.dialogContent = this.dialog.innerHTML!;
+    this.dialogContent = this.dialog?.innerHTML || '';
   }
 
   generate = () => {
