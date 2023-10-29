@@ -11,6 +11,7 @@ import { Skeleton } from "./Skeleton.ts";
 import { Player } from "./Player.ts";
 import { audioLibrary, playRandom } from "../sounds.ts";
 import { ZoomableDoodler } from "doodler/zoomableCanvas.ts";
+import { Ghost } from "./Ghost.ts";
 
 export class Game {
   rooms: Room[] = [];
@@ -25,9 +26,10 @@ export class Game {
   isHost = false;
 
   player?: Player;
-  players: Player[] = [];
+  players: Map<string, Player> = new Map();
 
   dialog = document.querySelector("dialog")!;
+  dialogContent: string;
 
   floor: floors = "basement";
 
@@ -43,6 +45,10 @@ export class Game {
   dungeon!: Room;
   entrance!: Room;
   treasureRooms!: Record<floors, Room>;
+
+  constructor() {
+    this.dialogContent = this.dialog.innerHTML!;
+  }
 
   generate = () => {
     let solvable = false;
@@ -175,6 +181,9 @@ export class Game {
     const tunnel2 = this.grid.get(this.randomSelector())!;
     tunnel1.secretTunnel = tunnel2;
     tunnel2.secretTunnel = tunnel1;
+
+    tunnel1.tunnelKnown = true;
+    tunnel2.tunnelKnown = true;
   };
 
   init = () => {
@@ -357,7 +366,7 @@ export class Game {
 
   // TODO: This needs to be refactored now that rooms are aware of characters inside them - this should also be moved to the skeleton class when it gets created
   skeletonCheck = () => {
-    for (const character of this.players) {
+    for (const character of this.players.values()) {
       skellies:
       for (const skeleton of this.skeletons) {
         if (skeleton.frozen) continue skellies;
@@ -381,6 +390,7 @@ export class Game {
   };
 
   skeletonMove = () => {
+    this.ghost.navigate();
     for (const skeleton of this.skeletons) {
       skeleton.navigate();
       this.sendRoom(skeleton.room.uuid, skeleton.uuid);
@@ -389,7 +399,7 @@ export class Game {
   };
 
   checkPlayerMoves = () => {
-    if (this.players.every((c) => c.hasMoved)) {
+    if (Array.from(this.players.values()).every((c) => c.hasMoved)) {
       this.tick();
       setTimeout(() => {
         this.players.forEach((c) => c.hasMoved = false);
@@ -423,7 +433,7 @@ export class Game {
           char.uuid = message.playerId;
           char.room = this.entrance;
           this.characters.set(message.playerId, char);
-          this.players.push(char);
+          this.players.set(char.uuid, char);
           const map = this.rooms.map((r) => ({
             name: r.name,
             level: r.level,
@@ -440,13 +450,14 @@ export class Game {
           this.sendRoom(char.room.uuid, char.uuid);
           this.sendMessage({
             action: "scoreboard",
-            charsInRoom: this.players.map((c) => `${c.uuid},${c.name}`),
+            charsInRoom: Array.from(this.players.values()).map((c) =>
+              `${c.uuid},${c.name}`
+            ),
             playerId: char.uuid,
           });
           break;
         }
         case "move": {
-          console.log("player moving");
           const c = this.characters.get(message.playerId)! as Player;
           const room = this.rooms.find((r) => r.uuid === message.roomId);
           if (!room) break;
@@ -470,13 +481,13 @@ export class Game {
           break;
         }
         case "score": {
-          const char = this.players.find((p) => p.uuid === message.playerId);
+          const char = this.players.get(message.playerId);
           if (!char) break;
           char._score = message.score || 0;
           break;
         }
         case "safe": {
-          const char = this.players.find((p) => p.uuid === message.playerId);
+          const char = this.players.get(message.playerId);
           if (!char) break;
           char.safe = !!message.safe;
           break;
@@ -516,6 +527,10 @@ export class Game {
           }
           break;
         }
+        case "noise": {
+          this.ghost.hear(message.playerId);
+          break;
+        }
       }
     });
 
@@ -523,6 +538,7 @@ export class Game {
   };
 
   skeletons: Skeleton[] = [];
+  ghost!: Ghost;
 
   startGame = () => {
     for (let i = 0; i < this.skeletonCount; i++) {
@@ -535,6 +551,7 @@ export class Game {
       this.sendRoom(skeleton.room.uuid, skeleton.uuid);
       this.skeletons.push(skeleton);
     }
+    this.ghost = new Ghost(this);
     this.channel?.send(JSON.stringify({ action: "unlock" }));
     const buttons = document.querySelector(".buttons");
     buttons!.innerHTML = `
@@ -554,10 +571,10 @@ export class Game {
     const unlockButton = document.createElement("button");
     unlockButton.dataset.dir = "c";
     unlockButton.addEventListener("click", () => {
-      for (const char of this.players) {
+      for (const char of this.players.values()) {
         if (!char.hasMoved) {
           this.characters.delete(char.uuid);
-          this.players = this.players.filter((p) => p !== char);
+          this.players.delete(char.uuid);
         } else {
           char.hasMoved = false;
         }
@@ -568,7 +585,7 @@ export class Game {
 
     buttons!.append(unlockButton);
 
-    for (const player of this.players) {
+    for (const player of this.players.values()) {
       player.hasMoved = false;
     }
     this.render();
@@ -698,6 +715,10 @@ export class Game {
                   c = new Skeleton(this.skeletons.length, this);
                   this.skeletons.push(c as Skeleton);
                   break;
+                case "ghost":
+                  c = new Ghost(this);
+                  this.ghost = c as Ghost;
+                  break;
                 default:
                   c = new Player(name, this);
                   break;
@@ -714,6 +735,12 @@ export class Game {
           const room = this.rooms.find((r) => r.uuid === message.roomId);
           if (this.player?.uuid === message.playerId || !room) break;
           room.trapCount += 1;
+          break;
+        }
+        case "ghosted": {
+          if (message.playerId !== this.player!.uuid) break;
+          this.player?.addPoints(-20, true);
+          this.alert("👻 EEEK A GHOST 👻", 2000);
           break;
         }
       }
@@ -779,7 +806,6 @@ export class Game {
   alertTimer?: number;
 
   alert(message: string | HTMLElement, time?: number) {
-    const prev = this.dialog.innerHTML || "";
     if (typeof message === "string") {
       this.dialog.innerHTML = message;
     } else {
@@ -792,7 +818,7 @@ export class Game {
       clearTimeout(this.alertTimer);
       this.alertTimer = setTimeout(() => {
         this.dialog.close();
-        this.dialog.innerHTML = prev;
+        this.dialog.innerHTML = this.dialogContent;
       }, time);
     }
   }
@@ -806,7 +832,7 @@ export class Game {
     doodler.createLayer((c) => {
       c.font = "32px spk";
       const pos = new Vector(12, 12);
-      for (const player of this.players) {
+      for (const player of this.players.values()) {
         const [gamepad] = navigator.getGamepads();
         if (gamepad) {
           const d = doodler as unknown as ZoomableDoodler;
@@ -880,16 +906,16 @@ export class Game {
 
       switch (message.action) {
         case "scoreboard": {
-          this.players = message.charsInRoom!.map((c) => {
+          for (const c of message.charsInRoom!) {
             const [uuid, name] = c.split(",");
             const player = new Player(name, this);
             player.uuid = uuid;
-            return player;
-          });
+            this.players.set(uuid, player);
+          }
           break;
         }
         case "score": {
-          const player = this.players.find((p) => p.uuid === message.playerId!);
+          const player = this.players.get(message.playerId);
           if (!player) break;
 
           player._score = message.score || 0;
@@ -924,6 +950,8 @@ interface socketPacket {
     | "dice"
     | "scoreboard"
     | "music"
+    | "ghosted"
+    | "noise"
     | "score";
   playerId: string;
   playerName?: string;

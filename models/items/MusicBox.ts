@@ -71,7 +71,7 @@ export class MusicBox extends Item {
             let prev;
 
             for (
-              const [i, step] of path.entries()
+              const step of path
               // const step of path.filter((r) => r.level === this.room.level)
             ) {
               const next = step.getRoomPos().mult(32)

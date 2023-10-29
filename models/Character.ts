@@ -16,6 +16,12 @@ export abstract class Character {
     this._room = r;
     this._room.characters.set(this.uuid, this);
     if (this.uuid === this.game?.player?.uuid) {
+      if (!this.room.known) {
+        this.game.sendMessage({
+          action: "noise",
+          playerId: this.uuid,
+        });
+      }
       this.room.known = true;
       if (!this.game?.isHost) {
         this.game!.floor = this._room.level;

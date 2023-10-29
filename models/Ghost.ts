@@ -1,5 +1,6 @@
+import { Vector } from "https://git.cyborggrizzly.com/emma/doodler/raw/tag/0.1.0a/mod.ts";
 import { Character } from "./Character.ts";
-import { direction, directions, Room } from "./index.ts";
+import { Game, Room } from "./index.ts";
 
 /*
 The ghost is a special monster that targets a specific player based off of the noise they've made
@@ -12,55 +13,115 @@ The ghost is a special monster that targets a specific player based off of the n
 - When the ghost reaches its target, it will take away 10 points and then be teleported to a random room, where it will start wandering until a new target is selected.
 */
 export class Ghost extends Character {
-  _target: Character | null = null;
-  _lastKnownLocation: Room | null = null;
-  set target(target: Character) {
-    this._target = target;
-    this._lastKnownLocation = target.room!;
-  }
-
   seenScore = 0;
 
-  constructor() {
-    super("ghost");
+  noises: Map<string, number> = new Map();
+
+  _target: Character | null = null;
+  _lastKnownLocation: Room | null = null;
+  set target(target: Character | null) {
+    this._target = target;
+    if (target) {
+      this._lastKnownLocation = target.room!;
+    }
+  }
+  get target() {
+    return this._target;
   }
 
-  // Horrible and unoptimized method to check if the target is in LOS by looking in each direction from the current room
-  look() {
-    let lastRoom = this.room!;
-    peer:
-    for (const dir of directions) {
-      if (!lastRoom.doors.includes(dir)) continue;
+  constructor(game: Game) {
+    super("ghost", game);
+    this.uuid = "ghost";
+    this.room = this.game.grid.get(this.game.randomSelector())!;
+  }
 
-      let found = false;
-      // seek:
-      while (!found) {
-        const neighbor = lastRoom.neighbors[dir];
-        if (!neighbor || !neighbor.doors.includes(dir)) {
-          lastRoom = this.room!;
-          continue peer;
-        }
-        if (lastRoom === this._lastKnownLocation) {
-          found = true;
-          this._lastKnownLocation = lastRoom;
+  look() {
+    if (!this.target) return;
+    peer:
+    for (const door of this.room.doors) {
+      let neighbor = this.room.neighbors[door];
+
+      while (neighbor) {
+        if (neighbor.characters.get(this.target.uuid)) {
+          this._lastKnownLocation = this.target.room;
           this.seenScore = 5;
           break peer;
-        } else {
-          lastRoom = lastRoom.neighbors[dir]!;
         }
+        neighbor = neighbor.neighbors[door];
       }
     }
   }
 
-  move = (dir?: direction | "up" | "down" | undefined) => {
-    super.move(dir);
-    if (this.seenScore < 1) this.look();
-  };
+  navigate() {
+    this.priority();
+    if (this.target) {
+      this.look();
+      const target = this.seenScore > 0
+        ? this.target.room
+        : this._lastKnownLocation;
 
-  closedList = [];
+      this._lastKnownLocation = target;
 
-  // TODO: implement A*
-  // navigate(): direction | "up" | "down" {
+      this.seenScore--;
 
-  // }
+      if (target && target !== this.path?.at(-1)) {
+        this.path = this.room.findPathTo(target, true, true);
+        this.path?.shift();
+      }
+
+      if (this.path) {
+        const step = this.path.shift();
+        step && this.move("nav", step);
+      }
+    } else {
+      const room = this.game.grid.get(this.game.randomSelector())!;
+      this.move("nav", room);
+    }
+
+    this.look();
+    if (this.room === this.target?.room) {
+      this.game.sendMessage({
+        action: "ghosted",
+        playerId: this.target.uuid,
+      });
+      this.noises.set(this.target.uuid, 0);
+      this._target = null;
+      this._lastKnownLocation = null;
+    } else if (this.room === this._lastKnownLocation) {
+      this._target = null;
+      this._lastKnownLocation = null;
+    }
+  }
+
+  noiseThreshold = 21;
+
+  hear(playerId: string) {
+    const score = this.noises.get(playerId) || 0;
+    this.noises.set(playerId, score + Math.floor(Math.random() * 4));
+  }
+
+  priority() {
+    let loudest = "";
+    for (const [id, noise] of this.noises.entries()) {
+      const highest = this.noises.get(loudest) || this.noiseThreshold;
+      if (noise > highest) loudest = id;
+    }
+    if (loudest) {
+      const char = this.game.players.get(loudest);
+      if (!char || this.target) return;
+      this.target = char;
+      this._lastKnownLocation = this.target.room;
+    }
+  }
+
+  render(startPos: Vector): void {
+    const scale = 1.5;
+    doodler.drawScaled(1 / scale, () => {
+      doodler.drawImage(
+        this.image,
+        startPos.copy().add(this.roomPosition).mult(scale),
+      );
+    });
+    super.renderPath(startPos);
+  }
 }

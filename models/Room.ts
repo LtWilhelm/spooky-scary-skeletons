@@ -163,7 +163,7 @@ export class Room {
         break;
       case "game room":
         this.image = imageLibrary.gameRoom;
-        lootNames.push("burned playing card");
+        lootNames.push("a burned playing card");
         break;
     }
 
@@ -333,6 +333,12 @@ export class Room {
 
   get tunnelMessage() {
     switch (this.name) {
+      case "game room":
+        return "You draw a card from the deck sitting on the card table.\nYou can barely make out the king of hearts before it bursts into flame and a magic door appears in the corner of the room.";
+      case "dining room":
+        return "You pick up a fire poker and the fireplace spins around to reveal a tunnel.";
+      case "study":
+        return "You try to pull a book off of a shelf, but it catches on something and the whole bookcase swings to reveal a passageway.";
       case "library":
         return "You try to pull a book off of a shelf, but it catches on something and the whole bookcase swings to reveal a passageway.";
       default:

@@ -1280,10 +1280,8 @@ class Item {
         this.game.dialog?.showModal();
     }
     pickup() {
-        console.log("item picked up", console.log(this.player));
         this.player.item?.onDrop?.();
         this.player.item = this;
-        debugger;
     }
     render() {
         const start = new Vector1(0, this.game.gridSize.y).mult(32).add(2, 2);
@@ -1362,7 +1360,7 @@ class CrystalBall extends Item {
     }
     onDrop() {}
     constructor(player, game){
-        super("Cyrstal Ball", 1, 30, player, game, `
+        super("Crystal Ball", 1, 30, player, game, `
       The glint of a Crystal Ball catches your eye.<br>
       The mist within swirls with visions of treasure!<br>
       Can be used once to find the treasure on the current floor.
@@ -1604,7 +1602,6 @@ class Compass extends Item {
       `, imageLibrary.compass);
     }
     handler = ()=>{
-        console.log("pathing");
         const floor = this.player.room.level;
         const target = this.player.gatheredTreasures.includes(this.game.treasureRooms[floor]) ? this.game.stairs[floor] : this.game.treasureRooms[floor];
         this.path = this.player.room.findPathTo(target, false, true);
@@ -1709,7 +1706,7 @@ class MusicBox extends Item {
                 doodler.deferDrawing(()=>{
                     doodler.drawScaled(10, ()=>{
                         let prev;
-                        for (const [i, step] of path.entries()){
+                        for (const step of path){
                             const next = step.getRoomPos().mult(32).add(16, 16);
                             if (!prev) {
                                 prev = next;
@@ -2149,7 +2146,7 @@ class Room {
                 break;
             case "game room":
                 this.image = imageLibrary.gameRoom;
-                lootNames.push("burned playing card");
+                lootNames.push("a burned playing card");
                 break;
         }
         this._lootTable = [];
@@ -2278,6 +2275,12 @@ class Room {
     hasBeenSearched = false;
     get tunnelMessage() {
         switch(this.name){
+            case "game room":
+                return "You draw a card from the deck sitting on the card table.\nYou can barely make out the king of hearts before it bursts into flame and a magic door appears in the corner of the room.";
+            case "dining room":
+                return "You pick up a fire poker and the fireplace spins around to reveal a tunnel.";
+            case "study":
+                return "You try to pull a book off of a shelf, but it catches on something and the whole bookcase swings to reveal a passageway.";
             case "library":
                 return "You try to pull a book off of a shelf, but it catches on something and the whole bookcase swings to reveal a passageway.";
             default:
@@ -2554,11 +2557,6 @@ class Room {
         return `${this.position.x}-${this.position.y}-${Room.FloorZ[this.level]}`;
     }
 }
-const floors = [
-    "basement",
-    "lower",
-    "upper"
-];
 class Character {
     name;
     uuid;
@@ -2571,6 +2569,12 @@ class Character {
         this._room = r;
         this._room.characters.set(this.uuid, this);
         if (this.uuid === this.game?.player?.uuid) {
+            if (!this.room.known) {
+                this.game.sendMessage({
+                    action: "noise",
+                    playerId: this.uuid
+                });
+            }
             this.room.known = true;
             if (!this.game?.isHost) {
                 this.game.floor = this._room.level;
@@ -2701,6 +2705,102 @@ class Character {
         }
     }
 }
+class Ghost extends Character {
+    seenScore = 0;
+    noises = new Map();
+    _target = null;
+    _lastKnownLocation = null;
+    set target(target) {
+        this._target = target;
+        if (target) {
+            this._lastKnownLocation = target.room;
+        }
+    }
+    get target() {
+        return this._target;
+    }
+    constructor(game){
+        super("ghost", game);
+        this.uuid = "ghost";
+        this.room = this.game.grid.get(this.game.randomSelector());
+    }
+    look() {
+        if (!this.target) return;
+        peer: for (const door of this.room.doors){
+            let neighbor = this.room.neighbors[door];
+            while(neighbor){
+                if (neighbor.characters.get(this.target.uuid)) {
+                    this._lastKnownLocation = this.target.room;
+                    this.seenScore = 5;
+                    break peer;
+                }
+                neighbor = neighbor.neighbors[door];
+            }
+        }
+    }
+    navigate() {
+        this.priority();
+        if (this.target) {
+            this.look();
+            const target = this.seenScore > 0 ? this.target.room : this._lastKnownLocation;
+            this._lastKnownLocation = target;
+            this.seenScore--;
+            if (target && target !== this.path?.at(-1)) {
+                this.path = this.room.findPathTo(target, true, true);
+                this.path?.shift();
+            }
+            if (this.path) {
+                const step = this.path.shift();
+                step && this.move("nav", step);
+            }
+        } else {
+            const room = this.game.grid.get(this.game.randomSelector());
+            this.move("nav", room);
+        }
+        this.look();
+        if (this.room === this.target?.room) {
+            this.game.sendMessage({
+                action: "ghosted",
+                playerId: this.target.uuid
+            });
+            this.noises.set(this.target.uuid, 0);
+            this._target = null;
+            this._lastKnownLocation = null;
+        } else if (this.room === this._lastKnownLocation) {
+            this._target = null;
+            this._lastKnownLocation = null;
+        }
+    }
+    noiseThreshold = 21;
+    hear(playerId) {
+        const score = this.noises.get(playerId) || 0;
+        this.noises.set(playerId, score + Math.floor(Math.random() * 4));
+    }
+    priority() {
+        let loudest = "";
+        for (const [id, noise] of this.noises.entries()){
+            const highest = this.noises.get(loudest) || this.noiseThreshold;
+            if (noise > highest) loudest = id;
+        }
+        if (loudest) {
+            const __char = this.game.players.get(loudest);
+            if (!__char || this.target) return;
+            this.target = __char;
+            this._lastKnownLocation = this.target.room;
+        }
+    }
+    render(startPos) {
+        doodler.drawScaled(1 / 1.5, ()=>{
+            doodler.drawImage(this.image, startPos.copy().add(this.roomPosition).mult(1.5));
+        });
+        super.renderPath(startPos);
+    }
+}
+const floors = [
+    "basement",
+    "lower",
+    "upper"
+];
 class Player extends Character {
     gatheredTreasures = [];
     knownTreasures = [];
@@ -2805,6 +2905,12 @@ class Player extends Character {
         });
     };
     move(dir, target) {
+        if (dir === "search") {
+            this.game.sendMessage({
+                action: "noise",
+                playerId: this.uuid
+            });
+        }
         this.hasMoved = true;
         dir === "nav" ? super.move(dir, target) : super.move(dir);
         this.game?.render();
@@ -2896,8 +3002,9 @@ class Game {
     };
     isHost = false;
     player;
-    players = [];
+    players = new Map();
     dialog = document.querySelector("dialog");
+    dialogContent;
     floor = "basement";
     tick = ()=>{
         this.skeletonCheck();
@@ -2909,6 +3016,9 @@ class Game {
     dungeon;
     entrance;
     treasureRooms;
+    constructor(){
+        this.dialogContent = this.dialog.innerHTML;
+    }
     generate = ()=>{
         let solvable = false;
         const allStairs = {
@@ -3035,6 +3145,8 @@ class Game {
         const tunnel2 = this.grid.get(this.randomSelector());
         tunnel1.secretTunnel = tunnel2;
         tunnel2.secretTunnel = tunnel1;
+        tunnel1.tunnelKnown = true;
+        tunnel2.tunnelKnown = true;
     };
     init = ()=>{
         const rooms = Array.from(this.grid.values()).sort((a)=>{
@@ -3118,7 +3230,7 @@ class Game {
     };
     randomSelector = (floor)=>`${Math.floor(Math.random() * this.gridSize.x)},${Math.floor(Math.random() * this.gridSize.y)},${floor || floors[Math.floor(Math.random() * floors.length)]}`;
     skeletonCheck = ()=>{
-        for (const character of this.players){
+        for (const character of this.players.values()){
             skellies: for (const skeleton of this.skeletons){
                 if (skeleton.frozen) continue skellies;
                 if (!character.safe && character.room === skeleton.room) {
@@ -3137,6 +3249,7 @@ class Game {
         }
     };
     skeletonMove = ()=>{
+        this.ghost.navigate();
         for (const skeleton of this.skeletons){
             skeleton.navigate();
             this.sendRoom(skeleton.room.uuid, skeleton.uuid);
@@ -3144,7 +3257,7 @@ class Game {
         this.skeletonCheck();
     };
     checkPlayerMoves = ()=>{
-        if (this.players.every((c)=>c.hasMoved)) {
+        if (Array.from(this.players.values()).every((c)=>c.hasMoved)) {
             this.tick();
             setTimeout(()=>{
                 this.players.forEach((c)=>c.hasMoved = false);
@@ -3175,7 +3288,7 @@ class Game {
                         __char.uuid = message.playerId;
                         __char.room = this.entrance;
                         this.characters.set(message.playerId, __char);
-                        this.players.push(__char);
+                        this.players.set(__char.uuid, __char);
                         const map = this.rooms.map((r)=>({
                                 name: r.name,
                                 level: r.level,
@@ -3192,14 +3305,13 @@ class Game {
                         this.sendRoom(__char.room.uuid, __char.uuid);
                         this.sendMessage({
                             action: "scoreboard",
-                            charsInRoom: this.players.map((c)=>`${c.uuid},${c.name}`),
+                            charsInRoom: Array.from(this.players.values()).map((c)=>`${c.uuid},${c.name}`),
                             playerId: __char.uuid
                         });
                         break;
                     }
                 case "move":
                     {
-                        console.log("player moving");
                         const c = this.characters.get(message.playerId);
                         const room = this.rooms.find((r)=>r.uuid === message.roomId);
                         if (!room) break;
@@ -3225,14 +3337,14 @@ class Game {
                     }
                 case "score":
                     {
-                        const __char = this.players.find((p)=>p.uuid === message.playerId);
+                        const __char = this.players.get(message.playerId);
                         if (!__char) break;
                         __char._score = message.score || 0;
                         break;
                     }
                 case "safe":
                     {
-                        const __char = this.players.find((p)=>p.uuid === message.playerId);
+                        const __char = this.players.get(message.playerId);
                         if (!__char) break;
                         __char.safe = !!message.safe;
                         break;
@@ -3271,11 +3383,17 @@ class Game {
                         }
                         break;
                     }
+                case "noise":
+                    {
+                        this.ghost.hear(message.playerId);
+                        break;
+                    }
             }
         });
         this.channel = this.puppet.getChannel(channelId);
     };
     skeletons = [];
+    ghost;
     startGame = ()=>{
         for(let i = 0; i < this.skeletonCount; i++){
             const skeleton = new Skeleton(i, this);
@@ -3287,6 +3405,7 @@ class Game {
             this.sendRoom(skeleton.room.uuid, skeleton.uuid);
             this.skeletons.push(skeleton);
         }
+        this.ghost = new Ghost(this);
         this.channel?.send(JSON.stringify({
             action: "unlock"
         }));
@@ -3301,10 +3420,10 @@ class Game {
         const unlockButton = document.createElement("button");
         unlockButton.dataset.dir = "c";
         unlockButton.addEventListener("click", ()=>{
-            for (const __char of this.players){
+            for (const __char of this.players.values()){
                 if (!__char.hasMoved) {
                     this.characters.delete(__char.uuid);
-                    this.players = this.players.filter((p)=>p !== __char);
+                    this.players.delete(__char.uuid);
                 } else {
                     __char.hasMoved = false;
                 }
@@ -3315,7 +3434,7 @@ class Game {
         });
         unlockButton.textContent = "Unlock";
         buttons.append(unlockButton);
-        for (const player of this.players){
+        for (const player of this.players.values()){
             player.hasMoved = false;
         }
         this.render();
@@ -3437,6 +3556,10 @@ class Game {
                                         c = new Skeleton(this.skeletons.length, this);
                                         this.skeletons.push(c);
                                         break;
+                                    case "ghost":
+                                        c = new Ghost(this);
+                                        this.ghost = c;
+                                        break;
                                     default:
                                         c = new Player(name, this);
                                         break;
@@ -3454,6 +3577,13 @@ class Game {
                         const room = this.rooms.find((r)=>r.uuid === message.roomId);
                         if (this.player?.uuid === message.playerId || !room) break;
                         room.trapCount += 1;
+                        break;
+                    }
+                case "ghosted":
+                    {
+                        if (message.playerId !== this.player.uuid) break;
+                        this.player?.addPoints(-20, true);
+                        this.alert("👻 EEEK A GHOST 👻", 2000);
                         break;
                     }
             }
@@ -3495,7 +3625,6 @@ class Game {
     }
     alertTimer;
     alert(message, time) {
-        const prev = this.dialog.innerHTML || "";
         if (typeof message === "string") {
             this.dialog.innerHTML = message;
         } else {
@@ -3506,7 +3635,7 @@ class Game {
             clearTimeout(this.alertTimer);
             this.alertTimer = setTimeout(()=>{
                 this.dialog.close();
-                this.dialog.innerHTML = prev;
+                this.dialog.innerHTML = this.dialogContent;
             }, time);
         }
     }
@@ -3519,7 +3648,7 @@ class Game {
         doodler.createLayer((c)=>{
             c.font = "32px spk";
             const pos = new Vector(12, 12);
-            for (const player of this.players){
+            for (const player of this.players.values()){
                 const [gamepad] = navigator.getGamepads();
                 if (gamepad) {
                     const d = doodler;
@@ -3567,17 +3696,17 @@ class Game {
             switch(message.action){
                 case "scoreboard":
                     {
-                        this.players = message.charsInRoom.map((c)=>{
+                        for (const c of message.charsInRoom){
                             const [uuid, name] = c.split(",");
                             const player = new Player(name, this);
                             player.uuid = uuid;
-                            return player;
-                        });
+                            this.players.set(uuid, player);
+                        }
                         break;
                     }
                 case "score":
                     {
-                        const player = this.players.find((p)=>p.uuid === message.playerId);
+                        const player = this.players.get(message.playerId);
                         if (!player) break;
                         player._score = message.score || 0;
                         break;
@@ -3612,7 +3741,10 @@ const init1 = ()=>{
 };
 const join = ()=>{
     game.joinGame();
-    const name = prompt("What name would you like to use?") || "Treasure Hunter";
+    const name = localStorage.getItem("playername") || prompt("What name would you like to use?") || "Treasure Hunter";
+    if (name !== "Treasuer Hunter") {
+        localStorage.setItem("playername", name);
+    }
     game.createCharacter(name);
     document.querySelector(".buttons").innerHTML = `
   <button class="movement" data-dir="north">North</button>

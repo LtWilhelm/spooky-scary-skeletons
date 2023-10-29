@@ -10,7 +10,7 @@ export class CrystalBall extends Item {
   }
   constructor(player: Player, game: Game) {
     super(
-      "Cyrstal Ball",
+      "Crystal Ball",
       1,
       30,
       player,

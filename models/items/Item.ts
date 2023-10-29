@@ -71,10 +71,8 @@ export abstract class Item {
 
   abstract onPickup(): void;
   protected pickup() {
-    console.log("item picked up", console.log(this.player));
     this.player.item?.onDrop?.();
     this.player.item = this;
-    debugger;
   }
 
   abstract onDrop(): void;

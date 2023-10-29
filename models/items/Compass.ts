@@ -21,7 +21,6 @@ export class Compass extends Item {
   }
 
   handler = () => {
-    console.log("pathing");
     const floor = this.player.room.level;
     const target =
       this.player.gatheredTreasures.includes(this.game.treasureRooms[floor])

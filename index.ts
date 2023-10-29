@@ -22,7 +22,12 @@ const init = () => {
 
 const join = () => {
   game.joinGame();
-  const name = prompt("What name would you like to use?") || "Treasure Hunter";
+  const name = localStorage.getItem("playername") ||
+    prompt("What name would you like to use?") || "Treasure Hunter";
+
+  if (name !== "Treasuer Hunter") {
+    localStorage.setItem("playername", name);
+  }
 
   game.createCharacter(name);
 

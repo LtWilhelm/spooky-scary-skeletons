@@ -135,6 +135,12 @@ export class Player extends Character {
     dir: direction | "up" | "down" | "nav" | "search" | "secret",
     target?: Room | undefined,
   ): void {
+    if (dir === "search") {
+      this.game.sendMessage({
+        action: "noise",
+        playerId: this.uuid,
+      });
+    }
     this.hasMoved = true;
     dir === "nav" ? super.move(dir, target!) : super.move(dir);
     this.game?.render();
