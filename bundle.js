@@ -2094,7 +2094,7 @@ class Room {
                 break;
             case "dining room":
                 this.image = imageLibrary.diningRoom;
-                lootNames.push("tarninshed silver spoon", "mostly intact China");
+                lootNames.push("tarnished silver spoon", "mostly intact China");
                 break;
             case "bedroom":
                 this.image = imageLibrary.bedroom;
@@ -3741,9 +3741,9 @@ const init1 = ()=>{
 };
 const join = ()=>{
     game.joinGame();
-    const name = localStorage.getItem("playername") || prompt("What name would you like to use?") || "Treasure Hunter";
-    if (name !== "Treasuer Hunter") {
-        localStorage.setItem("playername", name);
+    const name = localStorage.getItem("playerName") || prompt("What name would you like to use?") || "Treasure Hunter";
+    if (name !== "Treasure Hunter") {
+        localStorage.setItem("playerName", name);
     }
     game.createCharacter(name);
     document.querySelector(".buttons").innerHTML = `

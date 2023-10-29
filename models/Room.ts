@@ -109,7 +109,7 @@ export class Room {
         break;
       case "dining room":
         this.image = imageLibrary.diningRoom;
-        lootNames.push("tarninshed silver spoon", "mostly intact China");
+        lootNames.push("tarnished silver spoon", "mostly intact China");
         break;
       case "bedroom":
         this.image = imageLibrary.bedroom;

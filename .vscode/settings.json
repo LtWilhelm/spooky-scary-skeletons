@@ -21,5 +21,13 @@
   "peacock.remoteColor": "#832561",
   "deno.enable": true,
   "deno.unstable": true,
-  "deno.config": "./deno.jsonc"
+  "deno.config": "./deno.jsonc",
+  "cSpell.words": [
+    "AAAARRRGH",
+    "deadzone",
+    "doubleable",
+    "EEEK",
+    "playermove",
+    "renderables"
+  ]
 }
