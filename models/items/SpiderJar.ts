@@ -92,8 +92,10 @@ export class SpiderJar extends Item {
   }
 
   onDrop(): void {
+    this.player.sight = 0;
   }
   onPickup(): void {
     super.pickup();
+    this.player.sight = 1;
   }
 }

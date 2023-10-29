@@ -1447,9 +1447,12 @@ class SpiderJar extends Item {
         this.game.dialog.showModal();
         return true;
     }
-    onDrop() {}
+    onDrop() {
+        this.player.sight = 0;
+    }
     onPickup() {
         super.pickup();
+        this.player.sight = 1;
     }
 }
 class Lantern extends Item {
@@ -2078,7 +2081,7 @@ class Room {
         this.image = new Image(32, 32);
         this.doorImage = new Image(32, 32);
         this.game = g;
-        this.itemChance = Math.max(0, Math.random() - .2);
+        this.itemChance = Math.random();
         this.doorImage = this.level === "basement" ? imageLibrary.basementDoor : imageLibrary.door;
         const lootNames = [
             "a coin",
@@ -2771,7 +2774,7 @@ class Ghost extends Character {
             this._lastKnownLocation = null;
         }
     }
-    noiseThreshold = 21;
+    noiseThreshold = 36;
     hear(playerId) {
         const score = this.noises.get(playerId) || 0;
         this.noises.set(playerId, score + Math.floor(Math.random() * 4));

@@ -83,8 +83,7 @@ export class Room {
 
     this.game = g;
 
-    this.itemChance = Math.max(0, Math.random() - .2);
-    // this.itemChance = 1;
+    this.itemChance = Math.random();
 
     this.doorImage = this.level === "basement"
       ? imageLibrary.basementDoor

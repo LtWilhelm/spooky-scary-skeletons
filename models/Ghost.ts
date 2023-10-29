@@ -93,7 +93,7 @@ export class Ghost extends Character {
     }
   }
 
-  noiseThreshold = 21;
+  noiseThreshold = 36;
 
   hear(playerId: string) {
     const score = this.noises.get(playerId) || 0;
