@@ -2692,6 +2692,18 @@ class Player extends Character {
             this.addPoints(50);
         }
         this.game.floor = this.room?.level || this.game.floor;
+        const thing = {
+            score: this.score,
+            item: {
+                name: this.item?.name
+            },
+            room: {
+                uuid: this.room.uuid
+            }
+        };
+        localStorage.setItem('player', JSON.stringify(thing));
+        localStorage.setItem('rooms', this.game.rooms.filter((r)=>r.known).map((r)=>r.uuid).join(','));
+        localStorage.setItem('game', this.game.id);
     }
     render(startPos) {
         doodler.drawWithAlpha(this.safe ? .25 : 1, ()=>{
@@ -2755,6 +2767,7 @@ class Skeleton extends Character {
     }
 }
 class Game {
+    id;
     rooms = [];
     characters = new Map();
     gridSize = {
@@ -2784,6 +2797,7 @@ class Game {
     treasureRooms;
     constructor(){
         this.dialogContent = this.dialog?.innerHTML || '';
+        this.id = window.crypto.randomUUID();
     }
     generate = ()=>{
         let solvable = false;
@@ -3066,13 +3080,19 @@ class Game {
                             }));
                         this.channel?.send(JSON.stringify({
                             action: "map",
-                            map
+                            map,
+                            gameId: this.id
                         }));
                         this.sendRoom(__char.room.uuid, __char.uuid);
                         this.sendMessage({
                             action: "scoreboard",
                             charsInRoom: Array.from(this.players.values()).map((c)=>`${c.uuid},${c.name}`),
                             playerId: __char.uuid
+                        });
+                        this.sendMessage({
+                            action: 'restore',
+                            gameId: this.id,
+                            playerId: message.playerId
                         });
                         break;
                     }
@@ -3190,6 +3210,7 @@ class Game {
                 if (!__char.hasMoved) {
                     this.characters.delete(__char.uuid);
                     this.players.delete(__char.uuid);
+                    this.rooms.forEach((r)=>r.characters.delete(__char.uuid));
                 } else {
                     __char.hasMoved = false;
                 }
@@ -3218,6 +3239,7 @@ class Game {
             switch(message.action){
                 case "map":
                     {
+                        this.id = message.gameId || this.id;
                         if (!this.rooms.length) {
                             const tunnel = [];
                             const allStairs = {
@@ -3350,6 +3372,65 @@ class Game {
                         if (message.playerId !== this.player.uuid) break;
                         this.player?.addPoints(-20, true);
                         this.alert("👻 EEEK A GHOST 👻", 2000);
+                        break;
+                    }
+                case 'restore':
+                    {
+                        const game = localStorage.getItem('game');
+                        if (message.playerId !== this.player?.uuid) break;
+                        if (game !== message.gameId) break;
+                        const stored = JSON.parse(localStorage.getItem('player') || '');
+                        debugger;
+                        if (!stored) break;
+                        this.player.addPoints(stored.score);
+                        if (stored.item) {
+                            switch(stored.item.name){
+                                case 'compass':
+                                    this.player.item = new Compass(this.player, this);
+                                    break;
+                                case 'Crystal Ball':
+                                    this.player.item = new CrystalBall(this.player, this);
+                                    break;
+                                case 'Cursed Dice':
+                                    this.player.item = new Dice(this.player, this);
+                                    break;
+                                case 'Bone-sand Hourglass':
+                                    this.player.item = new Hourglass(this.player, this);
+                                    break;
+                                case 'Spectral Lanter':
+                                    this.player.item = new Lantern(this.player, this);
+                                    break;
+                                case 'Mystical Mirror':
+                                    this.player.item = new Mirror(this.player, this);
+                                    break;
+                                case 'Music Box':
+                                    this.player.item = new MusicBox(this.player, this);
+                                    break;
+                                case 'Ethereal Quill':
+                                    this.player.item = new Quill(this.player, this);
+                                    break;
+                                case 'Skull':
+                                    this.player.item = new Skull(this.player, this);
+                                    break;
+                                case 'Spider Jar':
+                                    this.player.item = new SpiderJar(this.player, this);
+                                    break;
+                                case 'Spyglass':
+                                    this.player.item = new Spyglass(this.player, this);
+                                    break;
+                                case 'Spool of Thread':
+                                    this.player.item = new Thread(this.player, this);
+                                    break;
+                            }
+                        }
+                        if (stored.room.uuid) this.player.room = this.rooms.find((r)=>r.uuid === stored.room.uuid);
+                        const rooms = localStorage.getItem('rooms')?.split(',');
+                        if (!rooms) break;
+                        for (const room of rooms){
+                            const r = this.rooms.find((r)=>r.uuid === room);
+                            if (!r) continue;
+                            r.known = true;
+                        }
                         break;
                     }
             }
